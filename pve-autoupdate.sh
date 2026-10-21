@@ -1576,7 +1576,7 @@ cmd_remote(){
   [[ "$c" =~ ^[A-Za-z0-9\ ._,:=-]*$ ]] && read -r -a a <<< "$c"
   [ "${a[0]:-}" = pve-autoupdate ] && a=("${a[@]:1}")
   case "${a[0]:-}" in
-    version|inventory|history|events|start|log|test-mail) ok=1 ;;
+    version|inventory|history|events|start|log|test-mail|api-fingerprint) ok=1 ;;
     config) [ "${a[1]:-}" = set ] && [ "${#a[@]}" = 2 ] && ok=1 ;;
   esac
   [ "$ok" = 1 ] || { json_err "not allowed"; exit 1; }
@@ -1811,6 +1811,7 @@ cmd_status(){
   echo "  $(L "Update window   " "Zeitfenster     "): $(window_txt)"
   echo "  $(L "Next run        " "Nächster Lauf   "): $(next_run)"
   echo "  $(L "Notification    " "Benachrichtigung"): $(notify_text)"
+  if ui_exists; then echo "  $(L "Web UI          " "Weboberfläche   "): $(ui_url || L "container $(ui_ctid), address unknown" "Container $(ui_ctid), Adresse unbekannt")"; fi
   echo
   if [ -f "$LOGF" ]; then echo "$(L "Last log lines" "Letzte Log-Zeilen") ($LOGF):"; tail -n 15 "$LOGF"; fi
   return 0
@@ -1933,6 +1934,8 @@ cmd_self_update(){
   install -m 755 "$tmp" "$BIN"; rm -f "$tmp"
   load_config; [ -f "$CONF" ] && install_units
   msg_ok "$(L "Updated to" "Aktualisiert auf") $newv"
+  # the new copy brings the matching web UI along
+  if ui_exists; then PVE_AUTOUPDATE_UI_SRC="" "$BIN" ui-update || true; fi
 }
 
 cmd_uninstall(){
@@ -1941,6 +1944,8 @@ cmd_uninstall(){
   systemctl disable "$UNIT-postcheck.service" >/dev/null 2>&1
   rm -f /etc/systemd/system/$UNIT.service /etc/systemd/system/$UNIT.timer /etc/systemd/system/$UNIT-postcheck.service
   systemctl daemon-reload
+  cmd_unpair
+  if [ "${1:-}" = --purge ] && ui_exists; then ( cmd_ui_remove ) || true; fi
   rm -f "$BIN"
   if [ "${1:-}" = --purge ]; then
     rm -rf "$CONF_DIR" "$STATE" "$LOGF" "$LOGF.1"
@@ -1948,6 +1953,271 @@ cmd_uninstall(){
   else
     msg_ok "$(L "pve-autoupdate removed. Settings are still in $CONF_DIR (remove with: uninstall --purge)" "pve-autoupdate entfernt. Einstellungen liegen noch in $CONF_DIR (löschen mit: uninstall --purge)")"
   fi
+}
+
+# ============================================================================
+#  Web UI container - a small Debian LXC with the web UI, set up from the node:
+#  container, packages, TLS certificate, an SSH key that may only run
+#  pve-autoupdate (see cmd_pair), pinned SSH host key and API certificate,
+#  systemd service. Nothing to do by hand.
+# ============================================================================
+UI_CONF="$CONF_DIR/ui.conf"
+UI_RAW="https://raw.githubusercontent.com/$REPO/main/ui"
+UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg"
+UI_DIR=/opt/pve-autoupdate-ui      # inside the container
+UI_ETC=/etc/pve-autoupdate-ui      # inside the container
+UI_PORT=8443
+UI_UNIT_TXT='[Unit]
+Description=pve-autoupdate web UI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pveau-ui
+ExecStart=/usr/bin/python3 /opt/pve-autoupdate-ui/pve-autoupdate-ui.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target'
+# runs inside the container: service user, SSH key, TLS certificate ($1 hostname, $2 IP)
+UI_PREP='set -e
+id -u pveau-ui >/dev/null 2>&1 || useradd --system --no-create-home --home-dir /opt/pve-autoupdate-ui --shell /usr/sbin/nologin pveau-ui
+mkdir -p /etc/pve-autoupdate-ui; cd /etc/pve-autoupdate-ui
+[ -f id_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -C pve-autoupdate-ui -f id_ed25519
+[ -f ui.key ] || openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 \
+  -subj "/CN=$1" -addext "subjectAltName=DNS:$1,IP:$2" -keyout ui.key -out ui.crt 2>/dev/null
+chown -R pveau-ui: /etc/pve-autoupdate-ui; chmod 700 /etc/pve-autoupdate-ui; chmod 600 id_ed25519 ui.key'
+
+ui_ctid(){ sed -n 's/^UI_CTID=\([0-9][0-9]*\)$/\1/p' "$UI_CONF" 2>/dev/null | head -n 1; }
+ui_exists(){ local id; id=$(ui_ctid); [ -n "$id" ] && pct status "$id" >/dev/null 2>&1; }
+ui_ip(){ pct exec "$1" -- ip -4 -o addr show dev eth0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n 1; }
+ui_url(){ local id ip; id=$(ui_ctid); [ -n "$id" ] && ip=$(ui_ip "$id") && [ -n "$ip" ] && echo "https://$ip:$UI_PORT"; }
+valid_ipv4(){ [[ "$1" =~ ^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$ ]]; }
+valid_cidr(){ valid_ipv4 "${1%/*}" && [[ "$1" =~ /([89]|[12][0-9]|3[0-2])$ ]]; }
+
+# SHA256 of the certificate pveproxy serves: an own/ACME one if there, else the cluster-signed one
+api_fingerprint(){
+  local c=/etc/pve/local/pveproxy-ssl.pem
+  [ -f "$c" ] || c=/etc/pve/local/pve-ssl.pem
+  openssl x509 -in "$c" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2 | tr -d : | tr 'A-F' 'a-f'
+}
+# asked by the web UI when the API certificate changed (renewal) - over SSH, whose host key is pinned
+cmd_api_fingerprint(){
+  local fp; fp=$(api_fingerprint)
+  [ -n "$fp" ] || { json_err "no API certificate found"; return 1; }
+  printf '{"ok": true, "sha256": "%s"}\n' "$fp"
+}
+
+ui_get_files(){ # dir - from the checkout next to this script, $PVE_AUTOUPDATE_UI_SRC, or GitHub
+  local d="$1" src f
+  src="${PVE_AUTOUPDATE_UI_SRC:-$(dirname "$(readlink -f "$0")")/ui}"
+  mkdir -p "$d/static"
+  if [ -f "$src/pve-autoupdate-ui.py" ]; then
+    for f in $UI_FILES; do cp "$src/$f" "$d/$f" || return 1; done
+  else
+    has_repo || return 1
+    for f in $UI_FILES; do
+      curl -fsSL "$UI_RAW/$f" -o "$d/$f" || { msg_error "$(L "download failed" "Download fehlgeschlagen"): $UI_RAW/$f"; return 1; }
+    done
+  fi
+  python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$d/pve-autoupdate-ui.py" 2>/dev/null
+}
+ui_push(){ # ctid dir
+  local f
+  pct exec "$1" -- mkdir -p "$UI_DIR/static" || return 1
+  for f in $UI_FILES; do pct push "$1" "$2/$f" "$UI_DIR/$f" --perms 644 || return 1; done
+}
+ui_template(){ # template storage -> newest Debian 13/12 standard template (downloaded if needed)
+  local t
+  t=$(pveam list "$1" 2>/dev/null | awk '{print $1}' | grep -E '/debian-1[23]-standard_[^/]*_amd64\.tar\.(zst|gz|xz)$' | sort -V | tail -n 1)
+  if [ -z "$t" ]; then
+    pveam update >/dev/null 2>&1
+    t=$(pveam available --section system 2>/dev/null | awk '{print $2}' | grep -E '^debian-1[23]-standard_.*_amd64\.tar\.(zst|gz|xz)$' | sort -V | tail -n 1)
+    [ -n "$t" ] || return 1
+    pveam download "$1" "$t" >/dev/null 2>&1 || return 1
+    t="$1:vztmpl/$t"
+  fi
+  echo "$t"
+}
+ui_storages(){ pvesm status -content "$1" 2>/dev/null | awk 'NR>1 && $3=="active" {print $1}'; }
+ui_pick_storage(){ # content -> a sensible default
+  local l s; l=$(ui_storages "$1")
+  for s in local-lvm local-zfs local; do in_list "$s" "${l//$'\n'/ }" && { echo "$s"; return 0; }; done
+  printf '%s\n' "$l" | head -n 1
+}
+ui_bridges(){ local b; for b in /sys/class/net/*/bridge; do [ -d "$b" ] && basename "$(dirname "$b")"; done; }
+
+ui_wizard(){ # storage and network - sets the locals of cmd_ui_install
+  local l n s c opts=()
+  wt --title "$(L "Web UI" "Weboberfläche")" --yes-button "$(L Install Installieren)" --no-button "$(L Cancel Abbrechen)" --yesno "$(L \
+"A small container with the web UI is created on this node ($SELF):\n\n  ID $id · Debian · 1 core · 256 MB RAM · 2 GB disk\n\nEverything is set up automatically: packages, certificate, an SSH key that may only run pve-autoupdate, and the service. You sign in with your Proxmox user." \
+"Auf diesem Node ($SELF) wird ein kleiner Container mit der Weboberfläche angelegt:\n\n  ID $id · Debian · 1 Kern · 256 MB RAM · 2 GB Platte\n\nAlles wird automatisch eingerichtet: Pakete, Zertifikat, ein SSH-Schlüssel, der nur pve-autoupdate ausführen darf, und der Dienst. Angemeldet wird mit deinem Proxmox-Benutzer.")" 17 78 || return 1
+  l=$(pvesm status -content rootdir 2>/dev/null | awk 'NR>1 && $3=="active" {print $1" "$2}')
+  if [ "$(printf '%s\n' "$l" | grep -c .)" -gt 1 ]; then
+    while read -r n s; do opts+=("$n" "$s"); done <<< "$l"
+    storage=$(wt --title "$(L Storage Speicher)" --default-item "$storage" --menu "$(L "Where should the container disk go?" "Wohin soll die Platte des Containers?")" 16 60 6 "${opts[@]}") || return 1
+  fi
+  l=$(ui_bridges)
+  if [ "$(printf '%s\n' "$l" | grep -c .)" -gt 1 ]; then
+    opts=(); for n in $l; do opts+=("$n" ""); done
+    bridge=$(wt --title "$(L Network Netzwerk)" --default-item "$bridge" --menu "$(L "Network bridge:" "Netzwerk-Bridge:")" 14 50 5 "${opts[@]}") || return 1
+  fi
+  c=$(wt --title "$(L Network Netzwerk)" --menu "$(L "IP address of the web UI:" "IP-Adresse der Weboberfläche:")" 12 70 2 \
+      dhcp   "$(L "automatic (DHCP)" "automatisch (DHCP)")" \
+      static "$(L "fixed address" "feste Adresse")") || return 1
+  if [ "$c" = dhcp ]; then ip=dhcp; gw=""; return 0; fi
+  while :; do
+    ip=$(wt --title "$(L Network Netzwerk)" --inputbox "$(L "IP address with prefix, e.g. 192.168.1.50/24:" "IP-Adresse mit Präfix, z.B. 192.168.1.50/24:")" 9 70 "${ip#dhcp}") || return 1
+    valid_cidr "$ip" && break
+    wt --msgbox "$(L "Please enter it like 192.168.1.50/24." "Bitte so eingeben: 192.168.1.50/24.")" 8 50
+  done
+  while :; do
+    gw=$(wt --title "$(L Network Netzwerk)" --inputbox "Gateway:" 9 70 "${gw:-${ip%.*}.1}") || return 1
+    valid_ipv4 "$gw" && break
+  done
+}
+
+cmd_ui_install(){
+  need_root; need_pve; load_config; load_nodes
+  local id="" storage="" tstorage="" bridge=vmbr0 vlan="" ip=dhcp gw="" name=pve-autoupdate-ui yes=0
+  local tmp tmpl net ctip nodeip fp hk pub uifp i up=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --ctid)     id="${2:-}"; shift ;;
+      --storage)  storage="${2:-}"; shift ;;
+      --template-storage) tstorage="${2:-}"; shift ;;
+      --bridge)   bridge="${2:-}"; shift ;;
+      --vlan)     vlan="${2:-}"; shift ;;
+      --ip)       ip="${2:-}"; shift ;;
+      --gw)       gw="${2:-}"; shift ;;
+      --hostname) name="${2:-}"; shift ;;
+      --yes|-y)   yes=1 ;;
+      *) die "$(L "unknown option" "unbekannte Option"): $1" ;;
+    esac
+    shift
+  done
+  ui_exists && die "$(L "the web UI is already installed (container $(ui_ctid)) - update it with: pve-autoupdate ui-update" "die Weboberfläche ist schon installiert (Container $(ui_ctid)) - aktualisieren mit: pve-autoupdate ui-update")"
+  [ -n "$id" ] || id=$(pvesh get /cluster/nextid 2>/dev/null)
+  [ -n "$storage" ] || storage=$(ui_pick_storage rootdir)
+  [ -n "$tstorage" ] || tstorage=$(ui_pick_storage vztmpl)
+  if [ "$INTERACTIVE" = 1 ] && [ "$yes" = 0 ] && command -v whiptail >/dev/null; then
+    ui_wizard || { msg_warn "$(L "Web UI not installed" "Weboberfläche nicht installiert")"; return 1; }
+  fi
+  [[ "$id" =~ ^[1-9][0-9]{2,8}$ ]]            || die "$(L "invalid container ID" "ungültige Container-ID"): $id"
+  [ -n "$storage" ] && [ -n "$tstorage" ]     || die "$(L "no storage for containers / templates found" "kein Speicher für Container / Vorlagen gefunden")"
+  [[ "$bridge" =~ ^[A-Za-z0-9_.-]+$ ]]        || die "$(L "invalid bridge" "ungültige Bridge"): $bridge"
+  [[ -z "$vlan" || "$vlan" =~ ^[1-9][0-9]{0,3}$ ]] || die "$(L "invalid VLAN" "ungültiges VLAN"): $vlan"
+  { [ "$ip" = dhcp ] || valid_cidr "$ip"; }   || die "$(L "invalid IP (dhcp or 192.168.1.50/24)" "ungültige IP (dhcp oder 192.168.1.50/24)"): $ip"
+  { [ -z "$gw" ] || valid_ipv4 "$gw"; }       || die "$(L "invalid gateway" "ungültiges Gateway"): $gw"
+  [[ "$name" =~ ^[A-Za-z0-9-]{1,63}$ ]]       || die "$(L "invalid host name" "ungültiger Hostname"): $name"
+  [ -x "$BIN" ] || install -m 755 "$(readlink -f "$0")" "$BIN"
+
+  tmp=$(mktemp -d)
+  ui_die(){ rm -rf "$tmp"; [ -n "${1:-}" ] && msg_error "$1"; [ -f "$UI_CONF" ] && echo -e "${TAB}$(L "Container $id is left for a look - remove it with: pve-autoupdate ui-remove" "Container $id bleibt zum Nachsehen stehen - entfernen mit: pve-autoupdate ui-remove")"; exit 1; }
+  msg_info "$(L "Getting the web UI files" "Dateien der Weboberfläche werden geholt") ..."
+  ui_get_files "$tmp" || ui_die "$(L "web UI files not found" "Dateien der Weboberfläche nicht gefunden")"
+  msg_ok "$(L "Web UI files ready" "Dateien der Weboberfläche bereit")"
+  msg_info "$(L "Getting the Debian template" "Debian-Vorlage wird geholt") ..."
+  tmpl=$(ui_template "$tstorage") || ui_die "$(L "no Debian template available (pveam available --section system)" "keine Debian-Vorlage verfügbar (pveam available --section system)")"
+  msg_ok "$(L "Template" "Vorlage"): ${tmpl#*/}"
+
+  msg_info "$(L "Creating container" "Container wird angelegt") $id ..."
+  net="name=eth0,bridge=$bridge,ip=$ip${gw:+,gw=$gw}${vlan:+,tag=$vlan}"
+  pct create "$id" "$tmpl" --hostname "$name" --cores 1 --memory 256 --swap 256 --rootfs "$storage:2" \
+    --net0 "$net" --unprivileged 1 --features nesting=1 --onboot 1 --timezone host --tags pve-autoupdate \
+    --description "pve-autoupdate web UI - $REPO_URL" > "$tmp/create.log" 2>&1 \
+    || ui_die "$(L "pct create failed" "pct create fehlgeschlagen"): $(tail -n 2 "$tmp/create.log")"
+  printf 'UI_CTID=%s\n' "$id" > "$UI_CONF"
+  pct start "$id" > /dev/null 2>&1 || ui_die "$(L "the container does not start" "der Container startet nicht")"
+  log "web UI container $id created ($storage, $net)"
+  msg_ok "$(L "Container $id created" "Container $id angelegt") ($name, $storage, $bridge)"
+
+  msg_info "$(L "Waiting for the network" "Warte auf das Netzwerk") ..."
+  for i in $(seq 60); do ctip=$(ui_ip "$id"); [ -n "$ctip" ] && break; sleep 2; done
+  [ -n "$ctip" ] || ui_die "$(L "the container got no IP address" "der Container hat keine IP-Adresse bekommen")"
+  for i in $(seq 30); do pct exec "$id" -- getent hosts deb.debian.org > /dev/null 2>&1 && break; sleep 2; done
+  nodeip=$(ip -4 -o route get "$ctip" 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1)
+  [ -n "$nodeip" ] || nodeip="${NODE_IP[$SELF]:-}"
+  valid_ipv4 "$nodeip" || ui_die "$(L "cannot tell which IP of this node the container reaches" "kann nicht erkennen, unter welcher IP der Container diesen Node erreicht")"
+  msg_ok "$(L "Network" "Netzwerk"): $(L container Container) $ctip, Node $nodeip"
+
+  msg_info "$(L "Installing packages (python3, ssh, openssl)" "Pakete werden installiert (python3, ssh, openssl)") ..."
+  pct exec "$id" -- bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq python3 openssh-client openssl ca-certificates' > "$tmp/apt.log" 2>&1 \
+    || ui_die "$(L "package installation failed" "Paketinstallation fehlgeschlagen"): $(tail -n 2 "$tmp/apt.log")"
+  msg_ok "$(L "Packages installed" "Pakete installiert")"
+
+  msg_info "$(L "Setting up the web UI" "Weboberfläche wird eingerichtet") ..."
+  ui_push "$id" "$tmp" || ui_die "$(L "copying the files failed" "Kopieren der Dateien fehlgeschlagen")"
+  pct exec "$id" -- bash -c "$UI_PREP" _ "$name" "$ctip" > "$tmp/prep.log" 2>&1 || ui_die "$(L "setup in the container failed" "Einrichtung im Container fehlgeschlagen"): $(tail -n 2 "$tmp/prep.log")"
+  fp=$(api_fingerprint)
+  hk=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)
+  [ -n "$fp" ] && [ -n "$hk" ] || ui_die "$(L "API certificate or SSH host key of this node not found" "API-Zertifikat oder SSH-Host-Schlüssel dieses Nodes nicht gefunden")"
+  echo "$nodeip $hk" > "$tmp/known_hosts"
+  printf '{\n  "listen": "0.0.0.0",\n  "port": %s,\n  "node": "%s",\n  "host": "%s",\n  "api_fingerprint": "%s"\n}\n' "$UI_PORT" "$SELF" "$nodeip" "$fp" > "$tmp/config.json"
+  printf '%s\n' "$UI_UNIT_TXT" > "$tmp/unit"
+  pct push "$id" "$tmp/known_hosts" "$UI_ETC/known_hosts" --perms 644 \
+    && pct push "$id" "$tmp/config.json" "$UI_ETC/config.json" --perms 600 \
+    && pct push "$id" "$tmp/unit" /etc/systemd/system/pve-autoupdate-ui.service --perms 644 \
+    && pct exec "$id" -- chown -R pveau-ui: "$UI_ETC" || ui_die "$(L "copying the settings failed" "Kopieren der Einstellungen fehlgeschlagen")"
+  pub=$(pct exec "$id" -- cat "$UI_ETC/id_ed25519.pub")
+  cmd_pair "$pub"
+  pct exec "$id" -- systemctl daemon-reload > /dev/null 2>&1
+  pct exec "$id" -- systemctl enable --now pve-autoupdate-ui > /dev/null 2>&1 || ui_die "$(L "the web UI service does not start" "der Dienst der Weboberfläche startet nicht")"
+  msg_ok "$(L "Web UI set up" "Weboberfläche eingerichtet")"
+
+  # keep the UI container itself up to date too
+  if [ -f "$CONF" ] && [ "$GUESTS" != all ] && ! in_list "$id" "$GUESTS"; then
+    GUESTS="${GUESTS:+$GUESTS }$id"; write_config
+    msg_ok "$(L "Container $id added to the automatic updates" "Container $id zu den automatischen Updates hinzugefügt")"
+  fi
+
+  msg_info "$(L "Waiting for the web UI" "Warte auf die Weboberfläche") ..."
+  for i in $(seq "${PVE_AUTOUPDATE_UI_WAIT:-30}"); do
+    curl -sk -o /dev/null --max-time 3 "https://$ctip:$UI_PORT/" && { up=1; break; }
+    sleep 1
+  done
+  uifp=$(pct exec "$id" -- openssl x509 -in "$UI_ETC/ui.crt" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)
+  rm -rf "$tmp"
+  log "web UI ready: https://$ctip:$UI_PORT (container $id)"
+  if [ "$up" = 1 ]; then msg_ok "$(L "Web UI ready" "Weboberfläche bereit"): https://$ctip:$UI_PORT"
+  else msg_warn "$(L "The web UI does not answer yet - look with: pct exec $id -- journalctl -u pve-autoupdate-ui" "Die Weboberfläche antwortet noch nicht - nachsehen mit: pct exec $id -- journalctl -u pve-autoupdate-ui"): https://$ctip:$UI_PORT"; fi
+  echo -e "${TAB}$(L "Sign in with your Proxmox user (e.g. root, realm \"Linux PAM\")." "Anmelden mit deinem Proxmox-Benutzer (z.B. root, Realm \"Linux PAM\").")"
+  echo -e "${TAB}$(L "The browser warns once (own certificate) - its SHA256:" "Der Browser warnt einmal (eigenes Zertifikat) - sein SHA256:") ${uifp:-?}"
+  [ "$ip" = dhcp ] && echo -e "${TAB}$(L "Tip: reserve $ctip for it in your router (DHCP), so the address stays the same." "Tipp: $ctip im Router (DHCP) fest reservieren, damit die Adresse gleich bleibt.")"
+  return 0
+}
+
+cmd_ui_update(){
+  need_root; need_pve
+  local id tmp; id=$(ui_ctid)
+  ui_exists || die "$(L "no web UI container installed (pve-autoupdate ui-install)" "kein Weboberflächen-Container installiert (pve-autoupdate ui-install)")"
+  tmp=$(mktemp -d)
+  msg_info "$(L "Updating the web UI" "Weboberfläche wird aktualisiert") ..."
+  if ! ui_get_files "$tmp" || ! ui_push "$id" "$tmp"; then rm -rf "$tmp"; die "$(L "web UI files could not be copied" "Dateien der Weboberfläche konnten nicht kopiert werden")"; fi
+  rm -rf "$tmp"
+  pct exec "$id" -- systemctl restart pve-autoupdate-ui > /dev/null 2>&1 || die "$(L "the web UI service does not start" "der Dienst der Weboberfläche startet nicht")"
+  log "web UI in container $id updated"
+  msg_ok "$(L "Web UI updated" "Weboberfläche aktualisiert")${id:+ ($(L container Container) $id)}"
+}
+
+cmd_ui_remove(){
+  need_root; need_pve
+  local id; id=$(ui_ctid)
+  # only ever destroy a container this script created
+  if ui_exists && ! grep -qE '^tags:.*pve-autoupdate' <<< "$(pct config "$id" 2>/dev/null)"; then
+    die "$(L "container $id is not tagged pve-autoupdate - not touching it" "Container $id hat nicht das Tag pve-autoupdate - wird nicht angefasst")"
+  fi
+  cmd_unpair
+  if ui_exists; then
+    msg_info "$(L "Removing container" "Container wird entfernt") $id ..."
+    pct stop "$id" > /dev/null 2>&1
+    pct destroy "$id" --purge > /dev/null 2>&1 || die "$(L "pct destroy $id failed" "pct destroy $id fehlgeschlagen")"
+    log "web UI container $id removed"
+  fi
+  rm -f "$UI_CONF"
+  msg_ok "$(L "Web UI removed" "Weboberfläche entfernt")"
 }
 
 # ============================================================================
@@ -2149,6 +2419,8 @@ $(L "Save and activate?" "Speichern und aktivieren?")" 20 78 || abort
   if [ "$(yn "$(L "Dry run" Testlauf)" "$(L "Do a dry run now?\n\nNothing is changed - it only checks what there is to update and whether all guests are reachable." "Jetzt einen Testlauf machen?\n\nEs wird nichts verändert - nur geprüft, was es zu aktualisieren gäbe und ob alle Gäste erreichbar sind.")" 1)" = 1 ]; then
     ( cmd_run --dry-run ) || true
   fi
+  # web UI: the wizard of ui-install starts with its own yes/no
+  ui_exists || ( cmd_ui_install ) || true
   echo
   msg_ok "$(L "Done. Run 'pve-autoupdate' again any time to open the menu." "Fertig. 'pve-autoupdate' jederzeit erneut aufrufen, um das Menü zu öffnen.")"
   has_donate && echo -e "${TAB}${MUT}♥ $(L "If pve-autoupdate saves you time, I'd appreciate your support on Liberapay:" "Wenn dir pve-autoupdate Zeit spart, freue ich mich über Unterstützung auf Liberapay:")${CL} ${AC}$DONATE_URL${CL}"
@@ -2187,6 +2459,7 @@ main_menu(){
       status   "$(L "Show status" "Status anzeigen")" \
       log      "$(L "View log" "Log ansehen")" \
       testmail "$(L "Send test mail" "Testmail senden")" \
+      webui    "$(L "Web UI" "Weboberfläche")" \
       update   "$(L "Update pve-autoupdate" "pve-autoupdate aktualisieren")" \
       language "Language / Sprache" \
       about    "$(L "About & support" "Über & Unterstützen") ♥" \
@@ -2201,6 +2474,7 @@ main_menu(){
       status)   header_info; ( cmd_status ); pause ;;
       log)      show_log ;;
       testmail) header_info; ( cmd_test_mail ) || true; pause ;;
+      webui)    ui_menu ;;
       update)   header_info; ( cmd_self_update ) || true; pause; exec "$BIN" ;;
       language) choose_language && write_config ;;
       about)    show_about ;;
@@ -2212,6 +2486,23 @@ main_menu(){
         fi ;;
     esac
   done
+}
+
+ui_menu(){
+  local c url
+  if ! ui_exists; then header_info; ( cmd_ui_install ) || true; pause; return; fi
+  url=$(ui_url)
+  c=$(wt --title "$(L "Web UI" "Weboberfläche")" --menu "$(L "Container" "Container") $(ui_ctid)\n${url:-$(L "address unknown (container stopped?)" "Adresse unbekannt (Container gestoppt?)")}" 14 70 3 \
+      update "$(L "Update the web UI" "Weboberfläche aktualisieren")" \
+      remove "$(L "Remove the web UI container" "Weboberflächen-Container entfernen")" \
+      back   "$(L "Back" "Zurück")") || return
+  case "$c" in
+    update) header_info; ( cmd_ui_update ) || true; pause ;;
+    remove)
+      if [ "$(yn "$(L "Web UI" "Weboberfläche")" "$(L "Remove container $(ui_ctid) with the web UI?" "Container $(ui_ctid) mit der Weboberfläche entfernen?")" 0)" = 1 ]; then
+        header_info; ( cmd_ui_remove ) || true; pause
+      fi ;;
+  esac
 }
 
 # first start (one-liner) or menu
@@ -2242,9 +2533,14 @@ pve-autoupdate $VERSION by $AUTHOR - $(L "unattended updates for Proxmox VE (nod
   pve-autoupdate status          $(L "settings, next run, last log lines" "Einstellungen, nächster Lauf, letzte Log-Zeilen")
   pve-autoupdate test-mail       $(L "send a test mail" "Testmail senden")
   pve-autoupdate self-update     $(L "update pve-autoupdate itself (diff + SHA256)" "pve-autoupdate selbst aktualisieren (Diff + SHA256)")
-  pve-autoupdate uninstall       $(L "remove timer and program (--purge: settings too)" "Timer und Programm entfernen (--purge: auch Einstellungen)")
+  pve-autoupdate uninstall       $(L "remove timer and program (--purge: settings and web UI too)" "Timer und Programm entfernen (--purge: auch Einstellungen und Weboberfläche)")
 
-$(L "For the web UI container (JSON):" "Für den Weboberflächen-Container (JSON):") inventory, history, events, start, config set, log
+  pve-autoupdate ui-install      $(L "create the web UI container (wizard; or --yes with" "Weboberflächen-Container anlegen (Assistent; oder --yes mit")
+                                 --ctid --storage --bridge --vlan --ip dhcp|CIDR --gw --hostname)
+  pve-autoupdate ui-update       $(L "copy the current web UI into the container" "aktuelle Weboberfläche in den Container kopieren")
+  pve-autoupdate ui-remove       $(L "remove the web UI container and its access" "Weboberflächen-Container und seinen Zugang entfernen")
+
+$(L "For the web UI container (JSON):" "Für den Weboberflächen-Container (JSON):") inventory, history, events, start, config set, log, api-fingerprint
   pve-autoupdate pair "<key>"    $(L "let the web UI in - its SSH key may only run pve-autoupdate" "Weboberfläche zulassen - ihr SSH-Schlüssel darf nur pve-autoupdate ausführen")
   pve-autoupdate unpair          $(L "remove that access again" "diesen Zugang wieder entfernen")
 
@@ -2277,6 +2573,10 @@ dispatch(){
     log)         shift; cmd_log "$@" ;;
     pair)        shift; cmd_pair "$@" ;;
     unpair)      cmd_unpair ;;
+    api-fingerprint) cmd_api_fingerprint ;;
+    ui-install)  shift; cmd_ui_install "$@" ;;
+    ui-update)   cmd_ui_update ;;
+    ui-remove)   cmd_ui_remove ;;
     remote)      cmd_remote ;;
     help|-h|--help) usage ;;
     *)           usage; exit 1 ;;

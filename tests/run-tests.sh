@@ -184,7 +184,7 @@ echo "WERR=0x8024402C_no_connection"  > "$MOCK/beh/304.win"
 echo "WUPD=3 WFAIL=1"                 > "$MOCK/beh/305.win"
 echo "WUPD=1 WHANG=1"                 > "$MOCK/beh/306.win"
 touch "$MOCK/beh/307.noagent"
-cp -r "$MOCK/beh" /tmp/beh-g
+cp -R "$MOCK/beh" /tmp/beh-g
 config "UI_LANG=en" "GUESTS='300 301 302 303 304 305 306 307'" "UPDATE_HOSTS=0" "SNAPSHOT=optional" "REBOOT_GUESTS=1" \
        "NOTIFY=always" "MAIL_TO=me@example.com" "SETTLE=0" "WIN_REBOOT_TIMEOUT=1" "WIN_UPDATE_TIMEOUT=1"
 bash "$SCRIPT" run > /tmp/g.out 2>&1

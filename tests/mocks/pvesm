@@ -1,0 +1,8 @@
+#!/bin/sh
+# pvesm status -content rootdir|vztmpl
+echo "Name             Type     Status           Total            Used       Available        %"
+case "$*" in
+  *rootdir*) echo "local-lvm     lvmthin     active        100000000        1000000        99000000    1.00%"
+             echo "nfs-backup        nfs   inactive        100000000        1000000        99000000    1.00%" ;;
+  *vztmpl*)  echo "local             dir     active         50000000        1000000        49000000    2.00%" ;;
+esac

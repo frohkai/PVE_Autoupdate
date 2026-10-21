@@ -63,7 +63,28 @@ The script shows its SHA256 and offers to show you its content before it install
 | 4 | How often, and from when to when? (daily / weekly / monthly / custom, time window e.g. `02:00-05:00`) |
 | 5 | Mail notification? When and where to? |
 
-At the end it offers a test mail and a dry run that changes nothing.
+At the end it offers a test mail, a dry run that changes nothing, and the web UI.
+
+## 🖥️ Web UI
+
+A small Debian container (1 core, 256 MB RAM, 2 GB disk) with a web interface: overview of nodes,
+containers and VMs, start checks and updates, live view, history. You sign in with your **Proxmox user**
+(realms and 2FA work; `Sys.Audit` may look, `Sys.Modify` may start updates).
+
+```bash
+pve-autoupdate ui-install
+```
+
+The wizard asks for storage, bridge and DHCP or a fixed IP - everything else is set up by itself:
+Debian template, packages, TLS certificate, a service user, an SSH key that may **only** run
+`pve-autoupdate` on this node (forced command), the pinned SSH host key and API certificate (a renewed
+certificate is taken over only after the node confirms it over SSH), and the service. At the end it
+prints the address, e.g. `https://192.168.1.50:8443`. The container is tagged `pve-autoupdate` and is
+itself kept up to date.
+
+Without questions: `pve-autoupdate ui-install --yes --storage local-lvm --bridge vmbr0 --ip 192.168.1.50/24 --gw 192.168.1.1`
+(also `--ctid`, `--vlan`, `--hostname`). `ui-update` copies a new version in, `ui-remove` removes the container
+and its access.
 
 ## 🧭 Usage
 
@@ -72,8 +93,8 @@ Run `pve-autoupdate` (or the one-liner again) to open the menu:
 ```
  Run updates now              Dry run (check only)       Change settings
  Show status                  View log                   Send test mail
- Update pve-autoupdate        Language / Sprache         About & support ♥
- Uninstall
+ Web UI                       Update pve-autoupdate      Language / Sprache
+ About & support ♥            Uninstall
 ```
 
 Or use the commands directly:
@@ -86,6 +107,7 @@ Or use the commands directly:
 | `pve-autoupdate status` | settings, next run, last log lines |
 | `pve-autoupdate test-mail` | send a test mail |
 | `pve-autoupdate self-update` | update the script (diff + SHA256) |
+| `pve-autoupdate ui-install` / `ui-update` / `ui-remove` | web UI container |
 | `pve-autoupdate uninstall [--purge]` | remove |
 
 ## 🧩 Your own services
@@ -149,7 +171,15 @@ Beim Start wählst du **Deutsch** aus. Danach fragt der Assistent:
 4. wie häufig und in welchem Zeitfenster (z. B. 02:00-05:00 - was bis 05:00 nicht fertig ist, auch Neustarts, wartet auf den nächsten Lauf)
 5. ob und wohin eine Mail geht
 
-Am Ende gibt es eine Testmail und einen Testlauf, der nichts verändert.
+Am Ende gibt es eine Testmail, einen Testlauf, der nichts verändert, und die Weboberfläche.
+
+### Weboberfläche
+
+`pve-autoupdate ui-install` (oder im Menü „Weboberfläche“) legt einen kleinen Debian-Container an
+(1 Kern, 256 MB RAM, 2 GB) und richtet alles selbst ein: Pakete, Zertifikat, einen SSH-Schlüssel, der nur
+`pve-autoupdate` auf diesem Node ausführen darf, und den Dienst. Gefragt wird nur nach Speicher, Bridge und
+DHCP oder fester IP. Angemeldet wird mit deinem **Proxmox-Benutzer** (auch mit 2FA). Am Ende steht die
+Adresse da, z. B. `https://192.168.1.50:8443`.
 
 ### Bedienung
 
@@ -161,6 +191,7 @@ Am Ende gibt es eine Testmail und einen Testlauf, der nichts verändert.
 - Status
 - Log
 - Testmail
+- Weboberfläche
 - Selbst-Update
 - Sprache
 - Über & Unterstützen

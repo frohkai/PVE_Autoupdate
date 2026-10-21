@@ -2,4 +2,5 @@
 case "$*" in
   *cluster/status*)    cat "$MOCK/cluster.json" ;;
   *cluster/resources*) cat "$MOCK/resources.json" ;;
+  *cluster/nextid*)    echo 150 ;;
 esac

@@ -2,9 +2,15 @@
 cmd=$1; id=$2; shift 2
 echo "pct $cmd $id $*" >> "$MOCK/actions"
 case "$cmd" in
-  config) echo "ostype: debian"; [ -f "$MOCK/beh/$id.lock" ] && echo "lock: backup"; exit 0 ;;
-  status) echo "status: running" ;;
+  config) echo "ostype: debian"; [ -f "$MOCK/beh/$id.lock" ] && echo "lock: backup"
+          [ -f "$MOCK/state/ct-$id" ] && grep -q -- '--tags pve-autoupdate' "$MOCK/state/ct-$id" && echo "tags: pve-autoupdate"
+          exit 0 ;;
+  status) [ -f "$MOCK/state/gone-$id" ] && { echo "Configuration file 'nodes/pve1/lxc/$id.conf' does not exist" >&2; exit 2; }
+          echo "status: running" ;;
+  create) echo "$id $*" > "$MOCK/state/ct-$id"; rm -f "$MOCK/state/gone-$id"; exit 0 ;;
+  push)   mkdir -p "$(dirname "$2")" && cp "$1" "$2" ;;
+  destroy) touch "$MOCK/state/gone-$id"; exit 0 ;;
   snapshot) [ -f "$MOCK/beh/$id.nosnap" ] && { echo "snapshot feature is not available" >&2; exit 1; }; exit 0 ;;
-  listsnapshot|delsnapshot|rollback|start|reboot) exit 0 ;;
+  listsnapshot|delsnapshot|rollback|start|stop|reboot) exit 0 ;;
   exec) shift; [ -f "$MOCK/delay" ] && /bin/sleep "$(cat "$MOCK/delay")"; rm -f /var/run/reboot-required; MOCK_GUEST=$id; export MOCK_GUEST; "$@" ;;
 esac

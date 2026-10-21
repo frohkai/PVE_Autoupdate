@@ -65,6 +65,7 @@ def load_conf():
 
 
 CONF = load_conf()
+CONF_LOCK = threading.Lock()
 
 
 def log(msg):
@@ -86,7 +87,7 @@ def pve_call(method, path, form=None):
         pin = CONF.get("api_fingerprint", "").replace(":", "").lower()
         if pin:
             got = hashlib.sha256(conn.sock.getpeercert(True)).hexdigest()
-            if not hmac.compare_digest(got, pin):
+            if not hmac.compare_digest(got, pin) and not repin(got):
                 raise ApiError("certificate of %s does not match the pinned fingerprint" % CONF["host"])
         body = urllib.parse.urlencode(form) if form is not None else None
         hdr = {"Content-Type": "application/x-www-form-urlencoded"} if body else {}
@@ -102,6 +103,34 @@ def pve_call(method, path, form=None):
     except ValueError:
         data = None
     return r.status, data
+
+
+def repin(seen):
+    """The API certificate changed (renewal, ACME). Ask the node over SSH - whose host key
+    is pinned - which certificate pveproxy really serves; take it over only if it matches."""
+    try:
+        res = remote_json(["api-fingerprint"], timeout=20)
+    except (ApiError, ValueError):
+        return False
+    real = str(res.get("sha256", "")).replace(":", "").lower() if isinstance(res, dict) else ""
+    if not real or not hmac.compare_digest(real, seen):
+        log("API certificate of %s does not match what the node reports - refused" % CONF["host"])
+        return False
+    with CONF_LOCK:
+        CONF["api_fingerprint"] = seen
+        try:
+            with open(CONF_PATH, encoding="utf-8") as f:
+                saved = json.load(f)
+            saved["api_fingerprint"] = seen
+            tmp = CONF_PATH + ".tmp"
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(saved, indent=2) + "\n")
+            os.replace(tmp, CONF_PATH)
+        except (OSError, ValueError) as e:
+            log("could not save the new API fingerprint: %s" % e)
+    log("API certificate of %s changed - new fingerprint taken over (confirmed by the node)" % CONF["host"])
+    return True
 
 
 def caps_of(data):

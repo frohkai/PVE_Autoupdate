@@ -1,0 +1,10 @@
+#!/bin/sh
+echo "pveam $*" >> "$MOCK/actions"
+case "$1" in
+  update) exit 0 ;;
+  list) echo "NAME                                                         SIZE"
+        [ -f "$MOCK/state/tmpl" ] && echo "$2:vztmpl/$(cat "$MOCK/state/tmpl")   120.00MB"; exit 0 ;;
+  available) printf 'system          %s\nsystem          %s\nsystem          %s\nturnkeylinux    debian-13-turnkey-wordpress_18.0-1_amd64.tar.gz\n' \
+               debian-12-standard_12.7-1_amd64.tar.zst debian-13-standard_13.1-2_amd64.tar.zst alpine-3.22-default_20250617_amd64.tar.xz ;;
+  download) echo "$3" > "$MOCK/state/tmpl" ;;
+esac

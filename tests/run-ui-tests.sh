@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Web UI against a fake Proxmox API (tests/ui/fake-pve-api.py) and the mocked node from run-tests.sh.
+# Web UI against a fake Proxmox API (tests/ui/fake-pve-api.py) and the mocked node from run-tests.sh,
+# plus the installer (ui-install / ui-update / ui-remove) with a mocked pct.
 # Meant for a throwaway container:
 #
-#   docker run --rm -v "$PWD:/src:ro" alpine sh -c "apk add -q bash python3 openssl curl && bash /src/tests/run-ui-tests.sh"
+#   docker run --rm -v "$PWD:/src:ro" alpine sh -c "apk add -q bash python3 openssl curl openssh-keygen shadow iproute2 && bash /src/tests/run-ui-tests.sh"
 #
 # UI_DEMO=1 skips the checks and keeps the UI running on http://<container>:8443 (plain http)
 # for a look in the browser - add -e UI_DEMO=1 -p 127.0.0.1:8443:8443 to docker run.
@@ -275,8 +276,82 @@ req POST /api/login "{\"pending\":\"$P\",\"code\":\"0a1b-2c3d-4e5f-6a7b\"}"
 check "recovery key -> session"          test "$CODE" = 200
 
 echo "== UI: certificate pin"
+FPL=$(echo "$FP" | tr -d : | tr 'A-F' 'a-f')
 URL=https://127.0.0.1:8444 login root test-root-pw pam
 check "wrong API fingerprint -> 502"     J '"pinned fingerprint" in d["detail"]' 502
+mkdir -p /etc/pve/local /etc/ssh
+cp "$D/ui.crt" /etc/pve/local/pve-ssl.pem          # the node reports another certificate
+URL=https://127.0.0.1:8444 login root test-root-pw pam
+check "node reports another cert -> 502" J '"pinned fingerprint" in d["detail"]' 502
+check "... and that is logged"           grep -q 'does not match what the node reports' "$D/ui-badpin.log"
+cp "$D/api.crt" /etc/pve/local/pve-ssl.pem         # renewed certificate, confirmed over SSH
+SSH_ORIGINAL_COMMAND=api-fingerprint $AU remote > /tmp/fp.json
+check "remote api-fingerprint"           python3 -c "import json; assert json.load(open('/tmp/fp.json'))['sha256']=='$FPL'"
+URL=https://127.0.0.1:8444 login root test-root-pw pam
+check "confirmed by the node -> re-pinned" J 'd["ok"]' 200
+check "new pin saved in config.json"     python3 -c "import json; assert json.load(open('$D/8444.json'))['api_fingerprint']=='$FPL'"
+
+echo "== installer: ui-install"
+ssh-keygen -q -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key
+export PVE_AUTOUPDATE_AUTHKEYS=/tmp/authorized_keys
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtherKeyOtherKeyOtherKeyOtherKeyOtherKey admin@laptop" > /tmp/authorized_keys
+: > "$MOCK/actions"
+PVE_AUTOUPDATE_UI_WAIT=1 bash "$SRC/pve-autoupdate.sh" ui-install --yes > /tmp/inst.out 2>&1; RC=$?
+check "ui-install succeeds"              test "$RC" = 0
+check "template: newest Debian fetched"  grep -q '^pveam download local debian-13-standard_13.1-2_amd64.tar.zst' "$MOCK/actions"
+CT=$MOCK/state/ct-150
+check "pct create: next free ID 150"     test -f "$CT"
+check "pct create: unprivileged, tagged" bash -c "grep -q -- '--unprivileged 1' $CT && grep -q -- '--tags pve-autoupdate' $CT && grep -q -- '--onboot 1' $CT"
+check "pct create: template + storage"   bash -c "grep -q 'local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst' $CT && grep -q -- '--rootfs local-lvm:2' $CT"
+check "pct create: DHCP on vmbr0"        grep -q -- '--net0 name=eth0,bridge=vmbr0,ip=dhcp ' "$CT"
+check "ui.conf remembers the container"  grep -qx 'UI_CTID=150' /etc/pve-autoupdate/ui.conf
+check "packages installed in the CT"     grep -q 'pct exec 150 -- bash -c .*apt-get install -y -qq python3 openssh-client openssl' "$MOCK/actions"
+check "UI files copied"                  bash -c "cmp -s $SRC/ui/pve-autoupdate-ui.py /opt/pve-autoupdate-ui/pve-autoupdate-ui.py && cmp -s $SRC/ui/static/app.js /opt/pve-autoupdate-ui/static/app.js"
+check "service user pveau-ui"            id -u pveau-ui
+E=/etc/pve-autoupdate-ui
+check "secrets: dir 700, keys 600, owner" bash -c "test \"\$(stat -c '%a %U' $E)\" = '700 pveau-ui' && test \$(stat -c %a $E/id_ed25519) = 600 && test \$(stat -c %a $E/ui.key) = 600 && test \$(stat -c %U $E/config.json) = pveau-ui"
+check "TLS certificate with SAN"         bash -c "openssl x509 -in $E/ui.crt -noout -text | grep -q 'DNS:pve-autoupdate-ui, IP Address:'"
+check "config.json: node + pinned API"   python3 -c "import json; c=json.load(open('$E/config.json')); assert c['node']=='pve1' and c['api_fingerprint']=='$FPL' and c['port']==8443 and c['host']"
+check "known_hosts: node host key"       bash -c "test \"\$(cut -d' ' -f2,3 $E/known_hosts)\" = \"\$(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)\""
+check "key paired with forced command"   grep -q "^command=\"/usr/local/sbin/pve-autoupdate remote\",restrict $(cut -d' ' -f1,2 $E/id_ed25519.pub) pve-autoupdate-ui$" /tmp/authorized_keys
+check "other keys left alone"            grep -q 'admin@laptop' /tmp/authorized_keys
+check "systemd unit as pveau-ui"         bash -c "grep -qx 'User=pveau-ui' /etc/systemd/system/pve-autoupdate-ui.service && grep -q 'systemctl enable --now pve-autoupdate-ui' $MOCK/actions"
+check "CT added to the updates"          bash -c ". /etc/pve-autoupdate/config; test \"\$GUESTS\" = '101 102 103 104 200 201 150'"
+check "prints the URL"                   grep -q 'https://[0-9.]*:8443' /tmp/inst.out
+check "status shows the web UI"          bash -c "$AU status | grep -q 'Web UI .*https://'"
+bash "$SRC/pve-autoupdate.sh" ui-install --yes > /tmp/inst2.out 2>&1; RC=$?
+check "second install refused"           bash -c "test $RC != 0 && grep -q 'already installed' /tmp/inst2.out"
+
+echo "== installer: the installed UI works"
+python3 -c "import json; c=json.load(open('$E/config.json')); c.update(port=8445, listen='127.0.0.1', host='127.0.0.1', ssh_cmd='/usr/local/mockbin/ui-ssh'); json.dump(c, open('$D/8445.json','w'))"
+PVEAU_UI_CONF="$D/8445.json" python3 /opt/pve-autoupdate-ui/pve-autoupdate-ui.py 2> "$D/ui-inst.log" &
+check "installed UI answers (own cert)"  waitup https://127.0.0.1:8445/
+JAR=/tmp/jar6
+URL=https://127.0.0.1:8445 login root test-root-pw pam
+check "login with the installed pin"     J 'd["ok"]' 200
+URL=https://127.0.0.1:8445 req GET /api/inventory
+check "inventory through the paired key" J 'd["cluster"]=="homelab"' 200
+
+echo "== installer: update + remove"
+: > "$MOCK/actions"
+PVE_AUTOUPDATE_UI_SRC="$SRC/ui" $AU ui-update > /tmp/upd.out 2>&1; RC=$?
+check "ui-update: files + restart"       bash -c "test $RC = 0 && grep -q 'pct push 150 .*app.js' $MOCK/actions && grep -q 'systemctl restart pve-autoupdate-ui' $MOCK/actions"
+echo "UI_CTID=101" > /etc/pve-autoupdate/ui.conf
+$AU ui-remove > /tmp/rm1.out 2>&1; RC=$?
+check "foreign container not destroyed"  bash -c "test $RC != 0 && grep -q 'not tagged' /tmp/rm1.out && ! grep -q 'pct destroy 101' $MOCK/actions"
+check "... and still paired"             grep -q ' pve-autoupdate-ui$' /tmp/authorized_keys
+echo "UI_CTID=150" > /etc/pve-autoupdate/ui.conf
+$AU ui-remove > /tmp/rm2.out 2>&1; RC=$?
+check "ui-remove destroys CT 150"        bash -c "test $RC = 0 && grep -q 'pct destroy 150 --purge' $MOCK/actions"
+check "ui-remove unpairs + forgets"      bash -c "! grep -q 'pve-autoupdate-ui' /tmp/authorized_keys && grep -q admin@laptop /tmp/authorized_keys && test ! -f /etc/pve-autoupdate/ui.conf"
+check "status: no web UI any more"       bash -c "! $AU status | grep -q 'Web UI'"
+for o in "--ip 10.0.0.300/24" "--ip 10.0.0.5" "--gw 1.2.3" "--bridge vmbr0;id" "--vlan 0" "--ctid 12" "--hostname a_b"; do
+  # shellcheck disable=SC2086
+  $AU ui-install --yes $o > /tmp/inst3.out 2>&1
+  check "refused: $o"                    bash -c "grep -q 'invalid' /tmp/inst3.out && test ! -f $MOCK/state/ct-12"
+done
+check "nothing created for bad input"    bash -c "test \$(ls $MOCK/state/ct-* | wc -l) = 1"
+unset PVE_AUTOUPDATE_AUTHKEYS
 
 echo "== UI: brute force"
 JAR=/tmp/jar5
@@ -288,4 +363,6 @@ check "blocks the right password too"    test "$CODE" = 429
 check "UI log has no passwords"          bash -c "! grep -q 'test-.*-pw' $D/ui.log"
 echo
 echo "passed: $PASS  failed: $FAILED"
+# shellcheck disable=SC2046
+kill $(jobs -p) 2>/dev/null   # the servers, so a pipe on our output ends
 [ "$FAILED" = 0 ]
