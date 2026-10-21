@@ -51,6 +51,7 @@ DEFAULTS = {
 ARG_RE = re.compile(r"^[A-Za-z0-9._,:=-]+$")
 TARGET_RE = re.compile(r"^([0-9]{1,9}|node:[A-Za-z0-9._-]{1,63})$")
 RUN_RE = re.compile(r"^[0-9]{8}-[0-9]{6}$")
+RECOVERY_RE = re.compile(r"^[0-9a-fA-F]{4}(-[0-9a-fA-F]{4}){3}$")   # Proxmox recovery keys look like 0a1b-2c3d-4e5f-6a7b
 
 
 def load_conf():
@@ -196,10 +197,12 @@ def do_login(ip, body):
         if not re.match(r"^[0-9A-Za-z-]{4,64}$", code):
             failed(ip)
             return 401, {"error": "bad_code"}, None
+        kind = "recovery" if RECOVERY_RE.match(code) else "totp"
         st, data = pve_call("POST", "/access/ticket", {"username": p["username"], "tfa-challenge": p["ticket"],
-                                                         "password": "%s:%s" % (p["type"], code)})
+                                                         "password": "%s:%s" % (kind, code)})
         if st != 200 or not data or not data.get("ticket"):
             failed(ip)
+            log("2FA failed for %s from %s" % (p["username"], ip))
             return 401, {"error": "bad_code"}, None
         return finish_login(ip, data, p["username"])
 
@@ -216,10 +219,8 @@ def do_login(ip, body):
         return 401, {"error": "bad_login"}, None
     if data.get("NeedTFA"):
         pid = secrets.token_urlsafe(16)
-        kinds = data.get("NeedTFA") if isinstance(data.get("NeedTFA"), dict) else {}
-        kind = "totp" if kinds.get("totp", True) else ("recovery" if kinds.get("recovery") else "totp")
         with LOCK:
-            PENDING_TFA[pid] = {"username": username, "ticket": data["ticket"], "type": kind, "exp": time.time() + 300}
+            PENDING_TFA[pid] = {"username": username, "ticket": data["ticket"], "exp": time.time() + 300}
         return 200, {"tfa": True, "pending": pid}, None
     return finish_login(ip, data, username)
 
@@ -375,7 +376,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if body.get("ignore_window"):
                     args.append("--ignore-window")
                 res = remote_json(args)
-                log("%s started: %s" % (s["user"], " ".join(args[1:]) or "full run"))
+                if res.get("ok"):
+                    log("%s started run %s: %s" % (s["user"], res.get("run"), " ".join(args[1:]) or "full run"))
                 return self.send(200 if res.get("ok") else 409, res)
             if u.path == "/api/config":
                 s = self.session(write=True)

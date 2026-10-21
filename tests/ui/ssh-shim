@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stands in for "ssh -i key ... root@node '<command>'": runs the forced command the way sshd would.
+echo "$*" > /tmp/ssh-args
+for a; do cmd=$a; done
+[ -f /tmp/node-down ] && { echo "ssh: connect to host 127.0.0.1 port 22: Connection refused" >&2; exit 255; }
+SSH_ORIGINAL_COMMAND=$cmd exec /usr/local/sbin/pve-autoupdate remote

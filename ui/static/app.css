@@ -117,7 +117,7 @@ h2 .actions { margin-left: auto; display: flex; gap: 8px; }
 .node .hd b { font-size: 15px; }
 .node .hd .ip { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--faint); }
 .node .ln { font-size: 12.5px; color: var(--muted); margin-top: 7px; display: flex; gap: 8px; align-items: baseline; }
-.node .ln .badge { flex: none; }
+.node .ln .badge, .node .ln .muted { flex: none; overflow: visible; }
 .node .ln span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node .bt { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
 
@@ -142,10 +142,13 @@ h2 .actions { margin-left: auto; display: flex; gap: 8px; }
 .tbl .res { max-width: 300px; }
 .tbl .res div { display: flex; gap: 7px; align-items: baseline; }
 .tbl .res span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.tbl .res .badge { flex: none; overflow: visible; font-size: 11.5px; }
+.tbl .nm, .tbl .nw { white-space: nowrap; }
 .tbl .res small { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
 .tbl .act { text-align: right; white-space: nowrap; }
 .tbl .act .btn { margin-left: 4px; }
 .tbl.click tbody tr { cursor: pointer; }
+.tblwrap { overflow-x: auto; }
 input[type=checkbox] { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
 .empty { padding: 26px; text-align: center; color: var(--faint); }
 
@@ -207,5 +210,10 @@ footer .heart { color: var(--amber); }
   .toolbar input[type=search] { width: 100%; }
   .toolbar .sel { margin-left: 0; }
   .tbl .hide-s { display: none; }
+  .tbl td, .tbl th { padding: 8px 6px; }
+  .tbl .nm { white-space: normal; }
+  .tbl .res { max-width: 92px; }
+  .tbl .res small { display: none; }
+  .tbl .act .btn { display: block; width: 100%; margin: 0 0 4px; padding: 5px 8px; font-size: 12px; }
   footer { padding: 16px; }
 }

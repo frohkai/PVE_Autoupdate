@@ -29,7 +29,7 @@ const TXT = {
     st_running: "running", st_stopped: "stopped", template: "template",
     no_guests: "No containers or VMs found.", no_match: "Nothing matches the filter.",
     run_check: "Check running", run_update: "Update running", run_done: "Finished", run_aborted: "Aborted",
-    run_rebooting: "Nodes are rebooting - the post check follows after boot", close: "Close", waiting: "waiting for the first result ...",
+    run_rebooting: "Nodes are rebooting - the post check follows after boot", run_window: "Nothing done - outside the update window", close: "Close", waiting: "waiting for the first result ...",
     cancel: "Cancel", start: "Start",
     m_check_t: "Check for updates", m_check_p: "Only looks - nothing is installed or changed.",
     m_update_t: "Install updates now", m_update_p: "A snapshot is taken before every update. If the health check fails afterwards, the guest is rolled back automatically.",
@@ -41,7 +41,7 @@ const TXT = {
     k_update: "Update", k_check: "Check", by_ui: "web UI", by_cli: "schedule / console", all_selected: "selection",
     no_history: "No runs yet.", back: "Back", results: "Results", events: "Log of this run", refresh: "Refresh",
     log_title: "Log on the node", pkgs: "{n} pkg", post: "Post check",
-    s_running: "running", s_ok: "OK", s_fail: "errors", s_aborted: "aborted", s_rebooting: "rebooting",
+    s_running: "running", s_ok: "OK", s_fail: "errors", s_aborted: "aborted", s_rebooting: "rebooting", s_window: "outside the time window", s_problems: "with problems",
     ago_s: "just now", ago_m: "{n} min ago", ago_h: "{n} h ago", ago_d: "{n} d ago", in_x: "in {x}",
     up_to_date: "up to date", reboot_needed: "reboot needed",
     os_windows: "Windows", os_linux: "Linux",
@@ -66,7 +66,7 @@ const TXT = {
     st_running: "läuft", st_stopped: "gestoppt", template: "Vorlage",
     no_guests: "Keine Container oder VMs gefunden.", no_match: "Nichts passt zum Filter.",
     run_check: "Prüfung läuft", run_update: "Update läuft", run_done: "Fertig", run_aborted: "Abgebrochen",
-    run_rebooting: "Nodes starten neu - die Nachkontrolle folgt nach dem Start", close: "Schließen", waiting: "warte auf das erste Ergebnis ...",
+    run_rebooting: "Nodes starten neu - die Nachkontrolle folgt nach dem Start", run_window: "Nichts getan - außerhalb des Update-Zeitfensters", close: "Schließen", waiting: "warte auf das erste Ergebnis ...",
     cancel: "Abbrechen", start: "Starten",
     m_check_t: "Nach Updates suchen", m_check_p: "Schaut nur nach - es wird nichts installiert oder verändert.",
     m_update_t: "Updates jetzt installieren", m_update_p: "Vor jedem Update wird ein Snapshot angelegt. Schlägt der Health-Check danach fehl, wird der Gast automatisch zurückgesetzt.",
@@ -78,7 +78,7 @@ const TXT = {
     k_update: "Update", k_check: "Prüfung", by_ui: "Weboberfläche", by_cli: "Zeitplan / Konsole", all_selected: "Auswahl",
     no_history: "Noch keine Läufe.", back: "Zurück", results: "Ergebnisse", events: "Protokoll dieses Laufs", refresh: "Aktualisieren",
     log_title: "Protokoll auf dem Node", pkgs: "{n} Pak.", post: "Nachkontrolle",
-    s_running: "läuft", s_ok: "OK", s_fail: "Fehler", s_aborted: "abgebrochen", s_rebooting: "Neustart",
+    s_running: "läuft", s_ok: "OK", s_fail: "Fehler", s_aborted: "abgebrochen", s_rebooting: "Neustart", s_window: "außerhalb Zeitfenster", s_problems: "mit Problemen",
     ago_s: "gerade eben", ago_m: "vor {n} Min.", ago_h: "vor {n} Std.", ago_d: "vor {n} Tg.", in_x: "in {x}",
     up_to_date: "aktuell", reboot_needed: "Neustart nötig",
     os_windows: "Windows", os_linux: "Linux",
@@ -87,7 +87,7 @@ const TXT = {
 
 // ------------------------------------------------------------------ state
 const S = {
-  lang: loadPref("lang") || (navigator.language || "en").slice(0, 2) === "de" ? (loadPref("lang") || "de") : (loadPref("lang") || "en"),
+  lang: loadPref("lang") || ((navigator.language || "en").slice(0, 2) === "de" ? "de" : "en"),
   session: null, inv: null, invErr: "", history: null, tab: "overview",
   filter: loadPref("filter") || "all", q: "", picked: new Set(),
   run: null,            // {id, from, events, done, mode}
@@ -158,8 +158,9 @@ function nextRunTxt(s) {
 
 // ------------------------------------------------------------------ small renderers
 function badge(st, label) { return `<span class="badge b-${esc(st)}">${esc(label || st)}</span>`; }
-function runStatusBadge(st) {
-  const map = { ok: ["OK", "s_ok"], fail: ["FAIL", "s_fail"], running: ["RUN", "s_running"], aborted: ["SKIP", "s_aborted"], rebooting: ["TEST", "s_rebooting"] };
+function runStatusBadge(st, problems) {   // a run that ended "ok" can still have rollbacks or warnings
+  if (st === "ok" && +problems > 0) return badge("WARN", t("s_problems"));
+  const map = { ok: ["OK", "s_ok"], fail: ["FAIL", "s_fail"], running: ["RUN", "s_running"], aborted: ["SKIP", "s_aborted"], rebooting: ["TEST", "s_rebooting"], window: ["SKIP", "s_window"] };
   const m = map[st] || ["SKIP", st];
   return badge(m[0], t(m[1]));
 }
@@ -261,7 +262,7 @@ function renderOverview() {
   if (isRunning()) state = `<div class="v"><span class="spin"></span> ${t("running")}</div><div class="s">${esc(win)}</div>`;
   else if (inv.reboot_pending) state = `<div class="v">${t("reboot_pending")}</div><div class="s">${esc(win)}</div>`;
   const lastHtml = last
-    ? `<div class="v">${runStatusBadge(last.status)} ${esc(last.mode === "dryrun" ? t("k_check") : t("k_update"))}</div><div class="s" title="${esc(last.subject || "")}">${esc(ago(last.start))} · ${esc(last.subject || "")}</div>`
+    ? `<div class="v">${runStatusBadge(last.status, last.problems)} ${esc(last.mode === "dryrun" ? t("k_check") : t("k_update"))}</div><div class="s" title="${esc(last.subject || "")}">${esc(ago(last.start))} · ${esc(last.subject || "")}</div>`
     : `<div class="v">${t("never")}</div><div class="s"></div>`;
 
   const w = canWrite(), dis = isRunning() ? "disabled" : "";
@@ -317,7 +318,7 @@ function renderGuests() {
       <td class="nm"><b>${esc(g.name)}</b> ${osTag(g)}</td>
       <td class="hide-s"><span class="tag">${g.type === "qemu" ? "VM" : "CT"}</span></td>
       <td class="hide-m">${esc(g.node)}</td>
-      <td class="hide-s"><span class="dot ${g.status === "running" ? "on" : ""}"></span>${esc(g.status === "running" ? t("st_running") : t("st_stopped"))}</td>
+      <td class="hide-s nw"><span class="dot ${g.status === "running" ? "on" : ""}"></span>${esc(g.status === "running" ? t("st_running") : t("st_stopped"))}</td>
       <td class="hide-s" title="${esc(g.selected ? t("auto_tip") : t("manual_tip"))}">${g.selected ? '<span class="auto">✓</span>' : '<span class="faint">–</span>'}</td>
       <td class="res hide-m">${resultCell(l, "check")}</td>
       <td class="res">${resultCell(l, "update")}</td>
@@ -330,11 +331,11 @@ function renderGuests() {
       ${w && picked.length ? `<div class="sel">${picked.length} ${t("selected")}
         <button class="btn sm" data-act="go" data-mode="check" data-t="picked" ${dis}>${t("check")}</button>
         <button class="btn sm primary" data-act="go" data-mode="update" data-t="picked" ${dis}>${t("update")}</button></div>` : ""}</div>
-    <table class="tbl"><thead><tr>
+    <div class="tblwrap"><table class="tbl"><thead><tr>
       ${w ? `<th><input type="checkbox" data-act="pickall" ${allPicked ? "checked" : ""}></th>` : ""}
       <th>${t("id")}</th><th>${t("name")}</th><th class="hide-s">${t("type")}</th><th class="hide-m">${t("node")}</th>
       <th class="hide-s">${t("status")}</th><th class="hide-s">${t("auto")}</th><th class="hide-m">${t("last_check")}</th><th>${t("last_update")}</th>${w ? "<th></th>" : ""}
-    </tr></thead><tbody>${rows || `<tr><td colspan="10" class="empty">${all.length ? t("no_match") : t("no_guests")}</td></tr>`}</tbody></table>`;
+    </tr></thead><tbody>${rows || `<tr><td colspan="10" class="empty">${all.length ? t("no_match") : t("no_guests")}</td></tr>`}</tbody></table></div>`;
 }
 
 // ------------------------------------------------------------------ live run panel
@@ -356,9 +357,10 @@ function renderRun() {
   let title, cls = "";
   if (!r.done) title = `<span class="spin"></span><b>${r.mode === "dryrun" ? t("run_check") : t("run_update")}</b>`;
   else if (end && end.status === "rebooting") { title = `<b>${t("run_rebooting")}</b>`; cls = ""; }
+  else if (end && end.status === "window") title = `<b>${t("run_window")}</b>`;
   else {
     title = `<b>${end ? t("run_done") : t("run_aborted")}</b>${rep ? ` <span class="muted">${esc(rep.subject)}</span>` : ""}`;
-    cls = end && end.status === "ok" ? "done-ok" : "done-bad";
+    cls = end && end.status === "ok" && !(rep && +rep.problems) ? "done-ok" : "done-bad";
   }
   const res = resultRows(r.events);
   return `<section class="run ${cls}"><div class="hd">${title}<span class="faint mono">${esc(r.id)}</span>
@@ -376,11 +378,11 @@ function renderHistory() {
       <td>${esc(fmt(r.start || runTs(r.id)))}<br><small class="faint">${esc(ago(r.start || runTs(r.id)))}</small></td>
       <td>${r.mode === "dryrun" ? t("k_check") : t("k_update")}</td>
       <td class="hide-s">${esc(r.only ? r.only.replace(/node:/g, "Node ") : t("all_selected"))}</td>
-      <td>${runStatusBadge(r.status)} <span class="muted">${esc(r.subject || "")}</span>${r.postcheck ? `<br><small class="faint">${t("post")}: Nodes ${esc(r.postcheck.nodes)}, ${esc(r.postcheck.guests)}</small>` : ""}</td>
+      <td>${runStatusBadge(r.status, r.problems)} <span class="muted">${esc(r.subject || "")}</span>${r.postcheck ? `<br><small class="faint">${t("post")}: Nodes ${esc(r.postcheck.nodes)}, ${esc(r.postcheck.guests)}</small>` : ""}</td>
       <td class="hide-m">${r.trigger === "ui" ? t("by_ui") : t("by_cli")}</td></tr>`).join("");
   return `<h2>${t("history")} <span class="count">${h.length}</span><span class="actions"><button class="btn sm" data-act="reloadhist">${t("refresh")}</button></span></h2>
-    <table class="tbl click"><thead><tr><th>${t("h_when")}</th><th>${t("h_kind")}</th><th class="hide-s">${t("h_target")}</th><th>${t("h_result")}</th><th class="hide-m">${t("h_by")}</th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
+    <div class="tblwrap"><table class="tbl click"><thead><tr><th>${t("h_when")}</th><th>${t("h_kind")}</th><th class="hide-s">${t("h_target")}</th><th>${t("h_result")}</th><th class="hide-m">${t("h_by")}</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 function renderDetail() {
   const d = S.detail;
@@ -388,7 +390,7 @@ function renderDetail() {
   const rep = d.events.find(e => e.ev === "report");
   const end = d.events.find(e => e.ev === "end");
   return `<div class="detail"><button class="btn sm back" data-act="back">← ${t("back")}</button>
-    <h2>${st.mode === "dryrun" ? t("k_check") : t("k_update")} · ${esc(fmt(st.ts || runTs(d.id)))} ${end ? runStatusBadge(end.status) : runStatusBadge("aborted")}</h2>
+    <h2>${st.mode === "dryrun" ? t("k_check") : t("k_update")} · ${esc(fmt(st.ts || runTs(d.id)))} ${end ? runStatusBadge(end.status, rep && rep.problems) : runStatusBadge("aborted")}</h2>
     <div class="kv"><span>${t("h_target")}: <b>${esc(st.only ? st.only.replace(/node:/g, "Node ") : t("all_selected"))}</b></span>
       <span>${t("h_by")}: <b>${st.trigger === "ui" ? t("by_ui") : t("by_cli")}</b></span><span>Nodes: <b>${esc(st.nodes || "")}</b></span>
       ${rep ? `<span>${esc(rep.subject)}</span>` : ""}</div>

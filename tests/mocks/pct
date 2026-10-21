@@ -6,5 +6,5 @@ case "$cmd" in
   status) echo "status: running" ;;
   snapshot) [ -f "$MOCK/beh/$id.nosnap" ] && { echo "snapshot feature is not available" >&2; exit 1; }; exit 0 ;;
   listsnapshot|delsnapshot|rollback|start|reboot) exit 0 ;;
-  exec) shift; rm -f /var/run/reboot-required; MOCK_GUEST=$id; export MOCK_GUEST; "$@" ;;
+  exec) shift; [ -f "$MOCK/delay" ] && /bin/sleep "$(cat "$MOCK/delay")"; rm -f /var/run/reboot-required; MOCK_GUEST=$id; export MOCK_GUEST; "$@" ;;
 esac

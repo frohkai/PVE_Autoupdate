@@ -1611,17 +1611,22 @@ cmd_run(){
   # --reboot / --no-reboot overrule the config for this one run
   [ -n "$reboot" ] && { REBOOT_GUESTS=$reboot; REBOOT_HOSTS=$reboot; }
   [ "$MODE" = dryrun ] && IGNORE_WINDOW=1        # a check changes nothing - allowed any time
+  exec 9>"$LOCKF"; flock -n 9 || die "$(L "pve-autoupdate is already running" "pve-autoupdate läuft bereits")"
+  mkdir -p "$STATE"
   if ! in_window; then
     if [ "$INTERACTIVE" = 1 ] && confirm "$(L "It is outside the update window ($UPDATE_WINDOW). Update anyway?" "Es ist außerhalb des Update-Zeitfensters ($UPDATE_WINDOW). Trotzdem aktualisieren?")"; then
       IGNORE_WINDOW=1
     else
+      if [ "$INTERACTIVE" = 0 ]; then              # timer or web UI: leave a trace in the history
+        ev_open
+        ev start mode="$MODE" only="$ONLY" trigger="${PVE_AUTOUPDATE_TRIGGER:-cli}" version="$VERSION" title="$TITLE"
+      fi
       log "outside the update window ($UPDATE_WINDOW) - nothing done"
+      ev_end window
       echo "$(L "Outside the update window" "Außerhalb des Update-Zeitfensters") ($UPDATE_WINDOW) - $(L "nothing done (--ignore-window to force)" "nichts getan (--ignore-window erzwingt es)")"
       return 0
     fi
   fi
-  exec 9>"$LOCKF"; flock -n 9 || die "$(L "pve-autoupdate is already running" "pve-autoupdate läuft bereits")"
-  mkdir -p "$STATE"
   if [ -f "$LOGF" ] && [ "$(stat -c %s "$LOGF")" -gt 5242880 ]; then mv -f "$LOGF" "$LOGF.1"; fi
   load_nodes
   WORK=$(mktemp -d); RESULTS="$WORK/results"; DETAILS="$WORK/details"; : > "$RESULTS"; : > "$DETAILS"

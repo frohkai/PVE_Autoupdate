@@ -15,6 +15,8 @@ jobs:
           shellcheck -S warning -e SC2034,SC1090,SC2016,SC2155 pve-autoupdate.sh
       - name: tests (Alpine, mocked Proxmox)
         run: docker run --rm -v "$PWD:/src:ro" alpine sh -c "apk add -q bash python3 && bash /src/tests/run-tests.sh"
+      - name: tests (web UI against a fake Proxmox API)
+        run: docker run --rm -v "$PWD:/src:ro" alpine sh -c "apk add -q bash python3 openssl curl nodejs && node --check /src/ui/static/app.js && bash /src/tests/run-ui-tests.sh"
       - name: tests (PowerShell part for Windows VMs)
         shell: bash
         run: bash tests/run-ps-tests.sh
