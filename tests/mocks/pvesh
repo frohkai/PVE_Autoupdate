@@ -1,0 +1,5 @@
+#!/bin/sh
+case "$*" in
+  *cluster/status*)    cat "$MOCK/cluster.json" ;;
+  *cluster/resources*) cat "$MOCK/resources.json" ;;
+esac

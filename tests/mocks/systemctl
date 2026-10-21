@@ -1,0 +1,11 @@
+#!/bin/sh
+t=${MOCK_GUEST:-node-${MOCK_NODE:-local}}
+case "$1" in
+  list-units) cat "$MOCK/state/$t.failed" 2>/dev/null ;;
+  reboot) echo "REBOOT ${MOCK_NODE:-SELF}" >> "$MOCK/actions"
+          [ -n "${MOCK_NODE:-}" ] && echo "boot-$$" > "$MOCK/state/bootid.$MOCK_NODE"; exit 0 ;;
+  show) echo "Mon 2026-10-26 03:02:11 CET" ;;
+  list-timers) echo "NEXT                        LEFT  LAST PASSED UNIT                 ACTIVATES"; echo "Mon 2026-10-26 03:02:11 CET 4 days -    -      pve-autoupdate.timer pve-autoupdate.service" ;;
+  list-unit-files) exit 0 ;;
+  *) echo "systemctl $*" >> "$MOCK/actions"; exit 0 ;;
+esac

@@ -1,0 +1,12 @@
+#!/bin/sh
+# runs the unit in the foreground, so the tests can look at the result right away
+echo "systemd-run $*" >> "$MOCK/actions"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --setenv=*) export "${1#--setenv=}"; shift ;;
+    --unit) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
+"$@" > /tmp/systemd-run.out 2>&1

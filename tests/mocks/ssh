@@ -1,0 +1,18 @@
+#!/bin/sh
+node=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) case "$2" in HostKeyAlias=*) node=${2#HostKeyAlias=} ;; esac; shift 2 ;;
+    -n) shift ;;
+    root@*) shift; break ;;
+    *) shift ;;
+  esac
+done
+cmd="$1"
+[ -f "$MOCK/offline.$node" ] && { echo "ssh: connect to host $node: No route to host" >&2; exit 255; }
+case "$cmd" in
+  "cat /proc/sys/kernel/random/boot_id") cat "$MOCK/state/bootid.$node" 2>/dev/null || echo boot-1; exit 0 ;;
+esac
+MOCK_NODE=$node; export MOCK_NODE
+rm -f /var/run/reboot-required
+bash -c "$cmd"

@@ -1,0 +1,12 @@
+# Own service for pve-autoupdate.
+# Copy to /etc/pve-autoupdate/services.d/vaultwarden.conf and adjust.
+#
+# All commands run inside the guest (or on the node) with sh.
+# HEALTH_CMD must exit 0, otherwise the guest is rolled back to the snapshot.
+# It is retried up to 6 times (every 10 s) to give the service time to start.
+
+NAME="Vaultwarden"
+TARGET="100"                      # guest ID(s) or node name, separated by spaces
+VERSION_CMD='/opt/vaultwarden/bin/vaultwarden --version | awk "{print \$2}"'
+UPDATE_CMD='/usr/local/sbin/update-vaultwarden.sh'
+HEALTH_CMD='systemctl is-active --quiet vaultwarden && curl -sk -o /dev/null https://127.0.0.1:8000/'

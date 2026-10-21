@@ -1,0 +1,3 @@
+# Shows the "Sponsor" button on the repository page.
+liberapay: __LIBERAPAY_USER__
+custom: ["https://kaimazon.de"]

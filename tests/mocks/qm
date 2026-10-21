@@ -1,0 +1,17 @@
+#!/bin/sh
+cmd=$1; id=$2; shift 2
+echo "qm $cmd $id $*" >> "$MOCK/actions"
+case "$cmd" in
+  config) echo "ostype: $(cat "$MOCK/beh/$id.ostype" 2>/dev/null || echo l26)" ;;
+  agent) [ -f "$MOCK/beh/$id.noagent" ] && exit 1; exit 0 ;;
+  status) echo "status: running" ;;
+  snapshot) [ -f "$MOCK/beh/$id.nosnap" ] && exit 1; exit 0 ;;
+  listsnapshot|delsnapshot|rollback|start|reboot) exit 0 ;;
+  guest)
+    # Windows guests: async exec of powershell.exe + exec-status, simulated in qm_win.py
+    if [ "$id" = exec-status ]; then exec python3 "$(dirname "$0")/qm_win.py" status "$@"; fi
+    case " $* " in *" powershell.exe "*) exec python3 "$(dirname "$0")/qm_win.py" exec "$@" ;; esac
+    id=$1; shift 4; rm -f /var/run/reboot-required
+    out=$(MOCK_GUEST=$id "$@" 2>&1)
+    printf '%s' "$out" | python3 -c 'import json,sys; print(json.dumps({"exitcode":0,"exited":1,"out-data":sys.stdin.read()}))' ;;
+esac
