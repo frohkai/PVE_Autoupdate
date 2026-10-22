@@ -213,14 +213,15 @@ pkgs_txt(){ if [ "$1" = 1 ]; then L "1 package" "1 Paket"; else L "$1 packages" 
 stamp(){ if [ "$UI_LANG" = de ]; then date '+%d.%m.%Y  %H:%M'; else date '+%Y-%m-%d  %H:%M'; fi; }
 
 write_config(){
-  local v tmp
-  umask 077; mkdir -p "$CONF_DIR" "$SVC_DIR"
+  local v tmp um
+  um=$(umask); umask 077; mkdir -p "$CONF_DIR" "$SVC_DIR"
   tmp="$CONF.tmp.$$"
   {
     echo "# pve-autoupdate $VERSION - configuration (changed $(date '+%F %T'))"
     echo "# Edit with: pve-autoupdate setup  (or here by hand, then: pve-autoupdate setup --apply)"
     for v in $CONF_VARS; do printf '%s=%q\n' "$v" "${!v}"; done
   } > "$tmp" && mv "$tmp" "$CONF" && chmod 600 "$CONF"
+  local rc=$?; umask "$um"; return "$rc"
 }
 
 # ---------------------------------------------------------------- cluster / nodes
