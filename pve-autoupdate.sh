@@ -1883,21 +1883,9 @@ HEALTH_CMD='systemctl is-active --quiet vaultwarden && curl -sk -o /dev/null htt
 EOF
 }
 
-# Pager the user can always leave: q ends it and the install goes on. Ctrl+C
-# inside the pager must not kill the whole script, so it is ignored here.
-view_file(){ # file
-  local hint; hint=$(L "q = quit and continue  ·  Space = next page  ·  b = back" "q beendet und macht weiter  ·  Leertaste blättert  ·  b zurück")
-  echo -e "${TAB}${AC}${hint}${CL}"
-  read -r -p "${TAB}$(L "Press Enter to open the script ..." "Mit Enter das Script öffnen ...") " _
-  trap '' INT
-  less -P"$hint" "$1" 2>/dev/null || cat "$1"
-  trap 'stop_spinner; echo; exit 130' INT TERM
-  return 0
-}
-
 # Copy this script to $BIN. Started via `bash -c "$(curl ...)"` there is no
-# file - then the script is downloaded again, shown with its SHA256 and can
-# be reviewed before it is installed. Scheduled runs only use the local copy.
+# file - then the script is downloaded again, shown with its SHA256.
+# Scheduled runs only use the local copy.
 install_self(){
   local src tmp="" sha
   src=$(readlink -f "$0" 2>/dev/null)
@@ -1915,10 +1903,6 @@ install_self(){
   sha=$(sha256sum "$tmp" | cut -d' ' -f1)
   if [ "$INTERACTIVE" = 1 ]; then
     echo -e "${INFO}${YW}SHA256: ${sha}${CL}"
-    if [ "$tmp" != "$src" ] && confirm "$(L "Review script content before installing?" "Script-Inhalt vor der Installation ansehen?")"; then
-      view_file "$tmp"
-      confirm "$(L "Install this script?" "Dieses Script installieren?")" || { rm -f "$tmp"; die "$(L "aborted" "abgebrochen")"; }
-    fi
   fi
   mkdir -p "$(dirname "$BIN")"; install -m 755 "$tmp" "$BIN"
   [ "$tmp" != "$src" ] && rm -f "$tmp"
