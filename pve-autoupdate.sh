@@ -135,17 +135,20 @@ DONATE_TXT(){ L "Like it? Support me on Liberapay:" "Gefällt's dir? Unterstütz
 header_info(){
   [ "$INTERACTIVE" = 1 ] || return 0
   clear
-  printf '%s' "$AC"
+  printf '%s' "$AC$BOLD"
   cat <<"EOF"
-    ____ _    ________   ___         __        __  __          __      __
-   / __ \ |  / / ____/  /   | __  __/ /_____  / / / /___  ____/ /___ _/ /____
-  / /_/ / | / / __/    / /| |/ / / / __/ __ \/ / / / __ \/ __  / __ `/ __/ _ \
- / ____/| |/ / /___   / ___ / /_/ / /_/ /_/ / /_/ / /_/ / /_/ / /_/ / /_/  __/
-/_/     |___/_____/  /_/  |_\__,_/\__/\____/\____/ .___/\__,_/\__,_/\__/\___/
-                                                /_/
+
+  ██████╗ ██╗   ██╗███████╗
+  ██╔══██╗██║   ██║██╔════╝
+  ██████╔╝██║   ██║█████╗
+  ██╔═══╝ ╚██╗ ██╔╝██╔══╝
+  ██║      ╚████╔╝ ███████╗
+  ╚═╝       ╚═══╝  ╚══════╝
 EOF
   printf '%s' "$CL"
-  echo -e "  ${AC}${BOLD}>_${CL} ${INK}$(L "unattended updates for Proxmox VE" "automatische Updates für Proxmox VE")${CL}  ${MUT}v${VERSION}${CL}"
+  echo -e "  ${INK}${BOLD}A U T O U P D A T E${CL}   ${MUT}v${VERSION}${CL}"
+  echo -e "  ${ACD}━━━━━━━━━━━━━━━━━━━━━━━━━${CL}"
+  echo -e "  ${AC}${BOLD}>_${CL} ${INK}$(L "unattended updates for Proxmox VE" "automatische Updates für Proxmox VE")${CL}"
   echo -e "  ${MUT}by${CL} ${INK}${BOLD}${AUTHOR}${CL} ${MUT}·${CL} ${AC}${WEBSITE#https://}${CL}"
   has_donate && echo -e "  ${MUT}♥ $(DONATE_TXT)${CL} ${AC}${DONATE_URL}${CL}"
   echo
@@ -1880,6 +1883,18 @@ HEALTH_CMD='systemctl is-active --quiet vaultwarden && curl -sk -o /dev/null htt
 EOF
 }
 
+# Pager the user can always leave: q ends it and the install goes on. Ctrl+C
+# inside the pager must not kill the whole script, so it is ignored here.
+view_file(){ # file
+  local hint; hint=$(L "q = quit and continue  ·  Space = next page  ·  b = back" "q beendet und macht weiter  ·  Leertaste blättert  ·  b zurück")
+  echo -e "${TAB}${AC}${hint}${CL}"
+  read -r -p "${TAB}$(L "Press Enter to open the script ..." "Mit Enter das Script öffnen ...") " _
+  trap '' INT
+  less -P"$hint" "$1" 2>/dev/null || cat "$1"
+  trap 'stop_spinner; echo; exit 130' INT TERM
+  return 0
+}
+
 # Copy this script to $BIN. Started via `bash -c "$(curl ...)"` there is no
 # file - then the script is downloaded again, shown with its SHA256 and can
 # be reviewed before it is installed. Scheduled runs only use the local copy.
@@ -1901,7 +1916,7 @@ install_self(){
   if [ "$INTERACTIVE" = 1 ]; then
     echo -e "${INFO}${YW}SHA256: ${sha}${CL}"
     if [ "$tmp" != "$src" ] && confirm "$(L "Review script content before installing?" "Script-Inhalt vor der Installation ansehen?")"; then
-      less "$tmp" 2>/dev/null || cat "$tmp"
+      view_file "$tmp"
       confirm "$(L "Install this script?" "Dieses Script installieren?")" || { rm -f "$tmp"; die "$(L "aborted" "abgebrochen")"; }
     fi
   fi
@@ -1995,6 +2010,31 @@ ui_ctid(){ sed -n 's/^UI_CTID=\([0-9][0-9]*\)$/\1/p' "$UI_CONF" 2>/dev/null | he
 ui_exists(){ local id; id=$(ui_ctid); [ -n "$id" ] && pct status "$id" >/dev/null 2>&1; }
 ui_ip(){ pct exec "$1" -- ip -4 -o addr show dev eth0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n 1; }
 ui_url(){ local id ip; id=$(ui_ctid); [ -n "$id" ] && ip=$(ui_ip "$id") && [ -n "$ip" ] && echo "https://$ip:$UI_PORT"; }
+
+# What people look for after the install: where do I open the web UI?
+ui_box(){ # [container-ip] [sha256] [dhcp]
+  local id url ctip="${1:-}" fp="${2:-}" mode="${3:-}" rule
+  id=$(ui_ctid); [ -n "$id" ] || return 0
+  [ -n "$ctip" ] || ctip=$(ui_ip "$id")
+  [ -n "$ctip" ] || return 0
+  url="https://$ctip:$UI_PORT"
+  [ -n "$fp" ] || fp=$(pct exec "$id" -- openssl x509 -in "$UI_ETC/ui.crt" -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)
+  [ -n "$mode" ] || { pct config "$id" 2>/dev/null | grep -q 'ip=dhcp' && mode=dhcp; }
+  rule="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo
+  echo -e "${TAB}${ACD}${rule}${CL}"
+  echo -e "${TAB}${AC}${BOLD}$(L "WEB UI READY" "WEBOBERFLÄCHE BEREIT")${CL}"
+  echo
+  echo -e "${TAB}${MUT}$(L "Open in your browser:" "Im Browser öffnen:")${CL}"
+  echo -e "${TAB}${AC}${BOLD}${url}${CL}"
+  echo
+  echo -e "${TAB}${MUT}$(L "Login      " "Anmeldung  ")${CL} ${INK}$(L "your Proxmox user, e.g. root, realm \"Linux PAM\"" "dein Proxmox-Benutzer, z. B. root, Realm \"Linux PAM\"")${CL}"
+  echo -e "${TAB}${MUT}$(L "Browser    " "Browser    ")${CL} ${INK}$(L "warns once about the certificate: Advanced, then Continue" "warnt einmal vor dem Zertifikat: Erweitert, dann Weiter")${CL}"
+  [ -n "$fp" ] && echo -e "${TAB}${MUT}SHA256     ${CL} ${MUT}${fp}${CL}"
+  [ "$mode" = dhcp ] && echo -e "${TAB}${MUT}$(L "Tip        " "Tipp       ")${CL} ${INK}$(L "reserve $ctip in your router so it stays the same" "$ctip im Router fest reservieren, damit sie gleich bleibt")${CL}"
+  echo -e "${TAB}${ACD}${rule}${CL}"
+  return 0
+}
 valid_ipv4(){ [[ "$1" =~ ^((25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])$ ]]; }
 valid_cidr(){ valid_ipv4 "${1%/*}" && [[ "$1" =~ /([89]|[12][0-9]|3[0-2])$ ]]; }
 
@@ -2184,9 +2224,7 @@ cmd_ui_install(){
   log "web UI ready: https://$ctip:$UI_PORT (container $id)"
   if [ "$up" = 1 ]; then msg_ok "$(L "Web UI ready" "Weboberfläche bereit"): https://$ctip:$UI_PORT"
   else msg_warn "$(L "The web UI does not answer yet - look with: pct exec $id -- journalctl -u pve-autoupdate-ui" "Die Weboberfläche antwortet noch nicht - nachsehen mit: pct exec $id -- journalctl -u pve-autoupdate-ui"): https://$ctip:$UI_PORT"; fi
-  echo -e "${TAB}$(L "Sign in with your Proxmox user (e.g. root, realm \"Linux PAM\")." "Anmelden mit deinem Proxmox-Benutzer (z.B. root, Realm \"Linux PAM\").")"
-  echo -e "${TAB}$(L "The browser warns once (own certificate) - its SHA256:" "Der Browser warnt einmal (eigenes Zertifikat) - sein SHA256:") ${uifp:-?}"
-  [ "$ip" = dhcp ] && echo -e "${TAB}$(L "Tip: reserve $ctip for it in your router (DHCP), so the address stays the same." "Tipp: $ctip im Router (DHCP) fest reservieren, damit die Adresse gleich bleibt.")"
+  [ -n "${PVEAU_IN_SETUP:-}" ] || ui_box "$ctip" "${uifp:-}" "$([ "$ip" = dhcp ] && echo dhcp)"
   return 0
 }
 
@@ -2366,10 +2404,17 @@ cmd_setup(){
     never   "$(L Never Nie)") || abort
   if [ "$NOTIFY" != never ]; then
     while :; do
-      MAIL_TO=$(wt --title "$(L Recipient Empfänger)" "${ok_btn[@]}" --inputbox "$(L "E-mail address (separate several with commas):" "E-Mail-Adresse (mehrere mit Komma trennen):")" 9 74 "$MAIL_TO") || abort
+      MAIL_TO=$(wt --title "$(L Recipient Empfänger)" "${ok_btn[@]}" --inputbox "$(L "E-mail address (separate several with commas).\nLeave empty to set up mail later." "E-Mail-Adresse (mehrere mit Komma trennen).\nLeer lassen = Mail später einrichten.")" 11 74 "$MAIL_TO") || abort
+      [ -z "$MAIL_TO" ] && break
       [[ "$MAIL_TO" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+ ]] && break
       wt --msgbox "$(L "That does not look like an e-mail address." "Das sieht nicht nach einer Mail-Adresse aus.")" 8 50
     done
+    if [ -z "$MAIL_TO" ]; then
+      NOTIFY=never
+      wt --title "$(L Notification Benachrichtigung)" --msgbox "$(L "No address entered - notifications are off for now.\n\nSet them up later with: pve-autoupdate setup" "Keine Adresse eingetragen - die Benachrichtigung ist vorerst aus.\n\nSpäter einrichten mit: pve-autoupdate setup")" 10 64
+    fi
+  fi
+  if [ "$NOTIFY" != never ]; then
     MAIL_TRANSPORT=$(wt --title "$(L Transport Versand)" "${ok_btn[@]}" --default-item "$MAIL_TRANSPORT" --menu "$(L "How should the mail be sent?" "Wie soll die Mail verschickt werden?")" 13 76 2 \
       system "$(L "Proxmox mail system (postfix) - like the PVE notifications" "Proxmox-Mailsystem (postfix) - wie die PVE-Benachrichtigungen")" \
       smtp   "$(L "Own SMTP server (e.g. Gmail with app password)" "Eigener SMTP-Server (z.B. Gmail mit App-Passwort)")") || abort
@@ -2421,10 +2466,11 @@ $(L "Save and activate?" "Speichern und aktivieren?")" 20 78 || abort
     ( cmd_run --dry-run ) || true
   fi
   # web UI: the wizard of ui-install starts with its own yes/no
-  ui_exists || ( cmd_ui_install ) || true
+  ui_exists || ( PVEAU_IN_SETUP=1; cmd_ui_install ) || true
   echo
   msg_ok "$(L "Done. Run 'pve-autoupdate' again any time to open the menu." "Fertig. 'pve-autoupdate' jederzeit erneut aufrufen, um das Menü zu öffnen.")"
   has_donate && echo -e "${TAB}${MUT}♥ $(L "If pve-autoupdate saves you time, I'd appreciate your support on Liberapay:" "Wenn dir pve-autoupdate Zeit spart, freue ich mich über Unterstützung auf Liberapay:")${CL} ${AC}$DONATE_URL${CL}"
+  ui_box
   return 0
 }
 
@@ -2514,9 +2560,9 @@ cmd_interactive(){
   header_info
   [ -n "${PVE_AUTOUPDATE_LANG:-}" ] || choose_language || exit 0
   header_info
-  wt --title "pve-autoupdate" --yes-button "$(L Yes Ja)" --no-button "$(L No Nein)" --yesno "$(L \
-"This will install pve-autoupdate on this node and open the setup wizard.\n\nIt keeps your containers, VMs, apps and Proxmox nodes up to date - with a snapshot before every update, automatic rollback and mail reports.\n\nProceed?" \
-"pve-autoupdate wird auf diesem Node installiert, danach öffnet sich der Einrichtungs-Assistent.\n\nEs hält Container, VMs, Anwendungen und Proxmox-Nodes aktuell - mit Snapshot vor jedem Update, automatischem Rollback und Mail-Bericht.\n\nFortfahren?")" 16 74 || { clear; exit 0; }
+  wt --title "$(L "Welcome" "Willkommen")" --yes-button "$(L "Install" "Installieren")" --no-button "$(L Cancel Abbrechen)" --yesno "$(L \
+"pve-autoupdate keeps your Proxmox node or cluster up to date by itself.\n\n  ✔  containers and VMs (Linux and Windows)\n  ✔  apps inside the guests (Docker, AdGuard, Forgejo ...)\n  ✔  the Proxmox nodes themselves\n\nSafe by design:\n  ▸  a snapshot before every update\n  ▸  health check, automatic rollback on failure\n  ▸  a mail report when something goes wrong\n\nNext, the program is installed on this node and the wizard\nasks five short questions.\n\nInstall now?" \
+"pve-autoupdate hält deinen Proxmox-Node oder -Cluster von selbst aktuell.\n\n  ✔  Container und VMs (Linux und Windows)\n  ✔  Anwendungen in den Gästen (Docker, AdGuard, Forgejo ...)\n  ✔  die Proxmox-Nodes selbst\n\nSicher gebaut:\n  ▸  ein Snapshot vor jedem Update\n  ▸  Health-Check, bei Fehlern automatischer Rollback\n  ▸  ein Mail-Bericht, wenn etwas schiefgeht\n\nAls Nächstes wird das Programm auf diesem Node installiert, und\nder Assistent stellt fünf kurze Fragen.\n\nJetzt installieren?")" 25 72 || { clear; exit 0; }
   install_self
   cmd_setup
 }
