@@ -52,7 +52,7 @@ Run this **as root in the shell of one Proxmox node**. In a cluster, one node is
 bash <(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/pve-autoupdate.sh)
 ```
 
-The script shows its SHA256 and offers to show you its content before it installs itself to
+The script shows its SHA256 and installs itself to
 `/usr/local/sbin/pve-autoupdate`. Then a wizard asks five questions:
 
 | Step | Question |
