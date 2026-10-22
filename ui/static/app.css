@@ -217,3 +217,16 @@ footer .heart { color: var(--amber); }
   .tbl .act .btn { display: block; width: 100%; margin: 0 0 4px; padding: 5px 8px; font-size: 12px; }
   footer { padding: 16px; }
 }
+
+/* settings */
+.banner.info { border-color: rgba(242,169,59,.45); color: #f3d9a4; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.setcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; max-width: 680px; }
+.setcard p { margin: 0 0 16px; }
+.setgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+@media (max-width: 560px) { .setgrid { grid-template-columns: 1fr; } }
+.setbt { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.setmsg { border-radius: 8px; padding: 9px 12px; margin: 4px 0 12px; font-size: 13px; }
+.setmsg.ok { background: rgba(63,179,127,.12); border: 1px solid rgba(63,179,127,.4); color: #a8e2c8; }
+.setmsg.bad { background: rgba(229,83,75,.12); border: 1px solid rgba(229,83,75,.4); color: #f3a29c; }
+.setmsg pre.log { margin: 8px 0 0; max-height: 160px; overflow: auto; }
+.field input:disabled, .field select:disabled { opacity: .55; cursor: not-allowed; }
