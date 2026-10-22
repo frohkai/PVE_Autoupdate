@@ -10,6 +10,18 @@ const hasDonate = () => DONATE_URL.startsWith("http") && !DONATE_URL.includes("_
 // ------------------------------------------------------------------ texts
 const TXT = {
   en: {
+    settings: "Settings", set_mail: "Notification by e-mail", set_mail_sub: "Get a report by mail after the updates ran.",
+    set_notify: "When to send a mail", n_never: "Never", n_errors: "Only when something went wrong", n_changes: "On problems and when something was updated", n_always: "After every run",
+    set_to: "Recipient", set_to_ph: "name@example.com (several separated by commas)",
+    set_transport: "Sending", tr_system: "Proxmox mail system (postfix)", tr_smtp: "Own SMTP server (e.g. Gmail with app password)",
+    set_from: "Sender (empty = automatic)", set_title: "Name in the subject",
+    set_host: "SMTP server", set_port: "Port", set_sec: "Encryption", sec_starttls: "STARTTLS (usually port 587)", sec_ssl: "SSL/TLS (usually port 465)", sec_none: "none (port 25, LAN only)",
+    set_user: "User name (empty = no login)", set_pass: "Password or app password", set_pass_kept: "saved - leave empty to keep it",
+    set_save: "Save", set_save_test: "Save and send test mail", set_saved: "Saved.", sending: "Sending the test mail ...",
+    set_test_ok: "Saved. The test mail was handed over - check your inbox.", set_test_fail: "Saved, but the test mail could not be sent:",
+    set_err: "Could not save", need_to: "Please enter a valid e-mail address.", need_host: "Please enter the SMTP server.", need_port: "Please enter a port (1-65535).",
+    mail_off_hint: "Mail notifications are off - you will not hear about failed updates.", mail_set_up: "Set up now",
+    set_ro: "Your account can view, but not change settings (Sys.Modify needed).",
     login_title: "Sign in", login_sub: "with your Proxmox VE account", user: "User name", password: "Password",
     realm: "Realm", sign_in: "Sign in", code: "Two-factor code", code_hint: "Code from your authenticator app (or a recovery key)",
     verify: "Verify", bad_login: "Login failed - check user name, password and realm.", bad_code: "The code is not valid.",
@@ -47,6 +59,18 @@ const TXT = {
     os_windows: "Windows", os_linux: "Linux",
   },
   de: {
+    settings: "Einstellungen", set_mail: "Benachrichtigung per Mail", set_mail_sub: "Einen Bericht per Mail bekommen, nachdem die Updates gelaufen sind.",
+    set_notify: "Wann soll eine Mail kommen", n_never: "Nie", n_errors: "Nur wenn etwas schiefgelaufen ist", n_changes: "Bei Problemen und wenn etwas aktualisiert wurde", n_always: "Nach jedem Lauf",
+    set_to: "Empfänger", set_to_ph: "name@example.com (mehrere mit Komma trennen)",
+    set_transport: "Versand", tr_system: "Proxmox-Mailsystem (postfix)", tr_smtp: "Eigener SMTP-Server (z. B. Gmail mit App-Passwort)",
+    set_from: "Absender (leer = automatisch)", set_title: "Name im Betreff",
+    set_host: "SMTP-Server", set_port: "Port", set_sec: "Verschlüsselung", sec_starttls: "STARTTLS (meist Port 587)", sec_ssl: "SSL/TLS (meist Port 465)", sec_none: "keine (Port 25, nur im LAN)",
+    set_user: "Benutzername (leer = ohne Anmeldung)", set_pass: "Passwort bzw. App-Passwort", set_pass_kept: "gespeichert - leer lassen, um es zu behalten",
+    set_save: "Speichern", set_save_test: "Speichern und Testmail senden", set_saved: "Gespeichert.", sending: "Testmail wird verschickt ...",
+    set_test_ok: "Gespeichert. Die Testmail wurde übergeben - schau in dein Postfach.", set_test_fail: "Gespeichert, aber die Testmail ging nicht raus:",
+    set_err: "Speichern fehlgeschlagen", need_to: "Bitte eine gültige Mail-Adresse eintragen.", need_host: "Bitte den SMTP-Server eintragen.", need_port: "Bitte einen Port eintragen (1-65535).",
+    mail_off_hint: "Mail-Benachrichtigung ist aus - bei fehlgeschlagenen Updates erfährst du nichts.", mail_set_up: "Jetzt einrichten",
+    set_ro: "Dein Konto darf Einstellungen ansehen, aber nicht ändern (Sys.Modify nötig).",
     login_title: "Anmelden", login_sub: "mit deinem Proxmox-VE-Konto", user: "Benutzername", password: "Passwort",
     realm: "Realm", sign_in: "Anmelden", code: "Zwei-Faktor-Code", code_hint: "Code aus deiner Authenticator-App (oder ein Recovery-Key)",
     verify: "Bestätigen", bad_login: "Anmeldung fehlgeschlagen - Benutzername, Passwort und Realm prüfen.", bad_code: "Der Code ist nicht gültig.",
@@ -234,16 +258,17 @@ function renderApp() {
   let body = "";
   if (S.tab === "overview") body = renderOverview();
   else if (S.tab === "history") body = S.detail ? renderDetail() : renderHistory();
+  else if (S.tab === "settings") body = renderSettings();
   else body = renderLog();
   return `<header class="top"><div class="in">
       <div class="logo"><img src="logo.svg" alt=""><div><b><i>&gt;_</i> pve-autoupdate</b><small>by ${esc(AUTHOR)}</small></div></div>
-      <nav class="tabs">${tab("overview")}${tab("history")}${tab("log")}</nav>
+      <nav class="tabs">${tab("overview")}${tab("history")}${tab("settings")}${tab("log")}</nav>
       <div class="right"><span class="chip"><b>${esc(where)}</b></span>
         <span class="chip user">${esc(S.session.user)}${canWrite() ? "" : " · " + t("read_only")}</span>
         ${langSwitch()}<button class="btn sm ghost" data-act="logout">${t("logout")}</button></div>
     </div></header>
     <main>${S.invErr ? `<div class="banner err">${t("node_down")}: ${esc(S.invErr)}</div>` : ""}
-      ${canWrite() ? "" : `<div class="banner ro">${t("ro_banner")}</div>`}${body}</main>
+      ${canWrite() ? "" : `<div class="banner ro">${t("ro_banner")}</div>`}${mailHint()}${body}</main>
     <footer><span>pve-autoupdate ${esc(inv ? inv.version : "")} · UI ${esc(S.session.version)}</span>
       <span>by ${esc(AUTHOR)} · <a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a></span>
       <a href="${REPO_URL}" target="_blank" rel="noopener">GitHub</a>
@@ -442,6 +467,84 @@ function openStart(mode, targetSpec, rebootPreset) {
 }
 function closeModal() { const m = $("#modal"); m.classList.add("hidden"); m.innerHTML = ""; }
 
+// ------------------------------------------------------------------ settings (mail)
+const MAIL_KEYS = ["NOTIFY", "MAIL_TO", "MAIL_TRANSPORT", "MAIL_FROM", "TITLE", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER"];
+function initForm() {
+  const c = (S.inv && S.inv.config) || {};
+  S.form = {};
+  for (const k of MAIL_KEYS) S.form[k] = c[k] != null ? c[k] : "";
+  S.form.NOTIFY = S.form.NOTIFY || "errors";
+  S.form.MAIL_TRANSPORT = S.form.MAIL_TRANSPORT || "system";
+  S.form.SMTP_PORT = S.form.SMTP_PORT || "587";
+  S.form.SMTP_SECURITY = S.form.SMTP_SECURITY || "starttls";
+  S.form.SMTP_PASS = "";
+  S.setMsg = null;
+}
+function mailHint() {
+  const c = (S.inv && S.inv.config) || {};
+  if (S.tab !== "overview" || !S.inv || c.NOTIFY !== "never" || !canWrite()) return "";
+  return `<div class="banner info"><span>${t("mail_off_hint")}</span><button class="btn sm" data-act="tab" data-v="settings">${t("mail_set_up")}</button></div>`;
+}
+function renderSettings() {
+  if (!S.inv) return `<div class="empty"><span class="spin"></span></div>`;
+  if (!S.form) initForm();
+  const f = S.form, w = canWrite(), dis = w && !S.busy ? "" : "disabled";
+  const on = f.NOTIFY !== "never", smtp = on && f.MAIL_TRANSPORT === "smtp";
+  const opt = (v, cur, label) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(label)}</option>`;
+  const fld = (k, label, type, ph) => `<label class="field"><span>${label}</span><input id="f-${k}" data-f="${k}" type="${type || "text"}" value="${esc(f[k])}"
+    ${ph ? `placeholder="${esc(ph)}"` : ""} ${dis} autocomplete="${type === "password" ? "new-password" : "off"}"></label>`;
+  const sel = (k, label, opts) => `<label class="field"><span>${label}</span><select id="f-${k}" data-f="${k}" ${dis}>${opts.map(o => opt(o[0], f[k], o[1])).join("")}</select></label>`;
+  const passPh = S.inv.smtp_pass_set ? t("set_pass_kept") : "";
+  const msg = S.setMsg ? `<div class="setmsg ${S.setMsg.ok ? "ok" : "bad"}">${esc(S.setMsg.text)}${S.setMsg.detail ? `<pre class="log">${esc(S.setMsg.detail)}</pre>` : ""}</div>` : "";
+  return `${w ? "" : `<div class="banner ro">${t("set_ro")}</div>`}
+    <h2>${t("set_mail")}</h2>
+    <form id="setform" class="setcard" autocomplete="off" onsubmit="return false"><p class="muted">${t("set_mail_sub")}</p>
+      ${sel("NOTIFY", t("set_notify"), [["never", t("n_never")], ["errors", t("n_errors")], ["changes", t("n_changes")], ["always", t("n_always")]])}
+      ${on ? `${fld("MAIL_TO", t("set_to"), "text", t("set_to_ph"))}
+        ${sel("MAIL_TRANSPORT", t("set_transport"), [["system", t("tr_system")], ["smtp", t("tr_smtp")]])}
+        ${smtp ? `<div class="setgrid">${fld("SMTP_HOST", t("set_host"), "text", "smtp.gmail.com")}${fld("SMTP_PORT", t("set_port"), "text")}</div>
+          ${sel("SMTP_SECURITY", t("set_sec"), [["starttls", t("sec_starttls")], ["ssl", t("sec_ssl")], ["none", t("sec_none")]])}
+          <div class="setgrid">${fld("SMTP_USER", t("set_user"), "text")}${fld("SMTP_PASS", t("set_pass"), "password", passPh)}</div>` : ""}
+        <div class="setgrid">${fld("MAIL_FROM", t("set_from"), "text")}${fld("TITLE", t("set_title"), "text")}</div>` : ""}
+      ${msg}
+      <div class="setbt"><button type="button" class="btn primary" data-act="savemail" ${dis}>${S.busy ? '<span class="spin"></span>' : ""}${t("set_save")}</button>
+        ${on ? `<button type="button" class="btn" data-act="savemailtest" ${dis}>${t("set_save_test")}</button>` : ""}</div>
+    </form>`;
+}
+async function saveMail(test) {
+  const f = S.form;
+  const on = f.NOTIFY !== "never", smtp = on && f.MAIL_TRANSPORT === "smtp";
+  const fail = text => { S.setMsg = { ok: false, text }; render(); };
+  if (on && !/^[^@\s,]+@[^@\s,]+\.[^@\s,]+(\s*,\s*[^@\s,]+@[^@\s,]+\.[^@\s,]+)*$/.test(f.MAIL_TO.trim())) return fail(t("need_to"));
+  if (smtp && !f.SMTP_HOST.trim()) return fail(t("need_host"));
+  if (smtp && !(+f.SMTP_PORT >= 1 && +f.SMTP_PORT <= 65535)) return fail(t("need_port"));
+  const body = { NOTIFY: f.NOTIFY };
+  if (on) {
+    Object.assign(body, { MAIL_TO: f.MAIL_TO.trim(), MAIL_TRANSPORT: f.MAIL_TRANSPORT, MAIL_FROM: f.MAIL_FROM.trim(), TITLE: f.TITLE.trim() });
+    if (smtp) {
+      Object.assign(body, { SMTP_HOST: f.SMTP_HOST.trim(), SMTP_PORT: String(f.SMTP_PORT).trim(), SMTP_SECURITY: f.SMTP_SECURITY, SMTP_USER: f.SMTP_USER.trim() });
+      if (f.SMTP_PASS) body.SMTP_PASS = f.SMTP_PASS;
+    }
+  }
+  S.busy = true; S.setMsg = null; render();
+  let msg = null;
+  try {
+    const r = await api("/api/config", { body });
+    if (!r.ok) { msg = { ok: false, text: t("set_err") + ": " + ((r.data && (r.data.error || r.data.detail)) || r.status) }; }
+    else {
+      await loadInventory();
+      msg = { ok: true, text: t("set_saved") };
+      if (test) {
+        S.setMsg = { ok: true, text: t("sending") }; render();
+        const tr = await api("/api/test-mail", { body: {} });
+        msg = tr.ok && tr.data.ok ? { ok: true, text: t("set_test_ok") } : { ok: false, text: t("set_test_fail"), detail: (tr.data && tr.data.output) || "" };
+      }
+      initForm();
+    }
+  } catch (e) { if (e.message !== "login") msg = { ok: false, text: t("set_err") }; }
+  S.busy = false; S.setMsg = msg; render();
+}
+
 // ------------------------------------------------------------------ polling
 function attachRun(id, mode) {
   S.run = { id, from: 0, events: [], done: false, mode: mode || "live", misses: 0 };
@@ -496,10 +599,13 @@ function render() {
   const app = $("#app");
   const q = document.activeElement && document.activeElement.id === "q";
   const pos = q ? document.activeElement.selectionStart : 0;
+  const ae = document.activeElement, fid = ae && ae.id && ae.id.startsWith("f-") ? ae.id : null;
+  const fpos = fid && ae.selectionStart != null ? ae.selectionStart : null;
   const y = window.scrollY;
   app.innerHTML = S.session ? renderApp() : renderLogin();
   window.scrollTo(0, y);
   if (q) { const el = $("#q"); el.focus(); el.setSelectionRange(pos, pos); }
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); if (fpos != null) { try { el.setSelectionRange(fpos, fpos); } catch (e) { /* select/password */ } } } }
   const fl = $("#f-login");
   if (fl) fl.addEventListener("submit", ev => { ev.preventDefault(); doLogin({ username: $("#user").value, password: $("#pw").value, realm: $("#realm").value }); });
   const ft = $("#f-tfa");
@@ -514,7 +620,7 @@ document.addEventListener("click", async ev => {
   const a = el.dataset.act, v = el.dataset.v;
   if (a === "lang") { S.lang = v; savePref("lang", v); render(); }
   else if (a === "tab") {
-    S.tab = v; S.detail = null; render();
+    S.tab = v; S.detail = null; if (v === "settings") S.form = null; render();
     if (v === "history") loadHistory();
     if (v === "log") loadLog();
   }
@@ -533,6 +639,16 @@ document.addEventListener("click", async ev => {
   else if (a === "back") { S.detail = null; render(); }
   else if (a === "reloadhist") loadHistory();
   else if (a === "reloadlog") loadLog();
+  else if (a === "savemail") saveMail(false);
+  else if (a === "savemailtest") saveMail(true);
+});
+document.addEventListener("input", ev => {
+  const k = ev.target.dataset && ev.target.dataset.f;
+  if (k && S.form) S.form[k] = ev.target.value;
+});
+document.addEventListener("change", ev => {
+  const el = ev.target, k = el.dataset && el.dataset.f;
+  if (k && S.form && el.tagName === "SELECT") { S.form[k] = el.value; render(); }
 });
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeModal(); });
 
