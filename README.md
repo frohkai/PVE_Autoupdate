@@ -49,7 +49,7 @@
 Run this **as root in the shell of one Proxmox node**. In a cluster, one node is enough.
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/pve-autoupdate.sh)"
+bash <(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/pve-autoupdate.sh)
 ```
 
 The script shows its SHA256 and offers to show you its content before it installs itself to
@@ -160,7 +160,7 @@ Vor jedem Update wird ein Snapshot angelegt. Schlägt danach etwas fehl, wird au
 Als **root in der Shell eines Proxmox-Nodes** ausführen. Im Cluster reicht ein Node.
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/pve-autoupdate.sh)"
+bash <(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/pve-autoupdate.sh)
 ```
 
 Beim Start wählst du **Deutsch** aus. Danach fragt der Assistent:
