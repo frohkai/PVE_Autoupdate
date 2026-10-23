@@ -2115,6 +2115,15 @@ mkdir -p /etc/pve-autoupdate-ui; cd /etc/pve-autoupdate-ui
 [ -f ui.key ] || openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 \
   -subj "/CN=$1" -addext "subjectAltName=DNS:$1,IP:$2" -keyout ui.key -out ui.crt 2>/dev/null
 chown -R pveau-ui: /etc/pve-autoupdate-ui; chmod 700 /etc/pve-autoupdate-ui; chmod 600 id_ed25519 ui.key'
+# Console of the web UI container: log in as root automatically, like the Proxmox helper scripts.
+# Only someone signed in to Proxmox with console rights gets there; no password is set or needed.
+UI_AUTOLOGIN='for u in "container-getty@:tty%I" "console-getty:console"; do
+  n=${u%%:*}; t=${u#*:}
+  mkdir -p "/etc/systemd/system/$n.service.d"
+  printf "%s\n" "[Service]" "ExecStart=" "ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud $t 115200,38400,9600 \$TERM" > "/etc/systemd/system/$n.service.d/autologin.conf"
+done
+systemctl daemon-reload
+systemctl restart "container-getty@*" console-getty 2>/dev/null || true'
 
 ui_ctid(){ sed -n 's/^UI_CTID=\([0-9][0-9]*\)$/\1/p' "$UI_CONF" 2>/dev/null | head -n 1; }
 ui_exists(){ local id; id=$(ui_ctid); [ -n "$id" ] && pct status "$id" >/dev/null 2>&1; }
@@ -2301,6 +2310,7 @@ cmd_ui_install(){
 
   msg_info "$(L "Setting up the web UI" "Weboberfläche wird eingerichtet") ..."
   ui_push "$id" "$tmp" || ui_die "$(L "copying the files failed" "Kopieren der Dateien fehlgeschlagen")"
+  pct exec "$id" -- bash -c "$UI_AUTOLOGIN" > /dev/null 2>&1 || true
   pct exec "$id" -- bash -c "$UI_PREP" _ "$name" "$ctip" > "$tmp/prep.log" 2>&1 || ui_die "$(L "setup in the container failed" "Einrichtung im Container fehlgeschlagen"): $(tail -n 2 "$tmp/prep.log")"
   fp=$(api_fingerprint)
   hk=$(awk '{print $1" "$2}' /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)
@@ -2346,6 +2356,7 @@ cmd_ui_update(){
   msg_info "$(L "Updating the web UI" "Weboberfläche wird aktualisiert") ..."
   if ! ui_get_files "$tmp" || ! ui_push "$id" "$tmp"; then rm -rf "$tmp"; die "$(L "web UI files could not be copied" "Dateien der Weboberfläche konnten nicht kopiert werden")"; fi
   rm -rf "$tmp"
+  pct exec "$id" -- bash -c "$UI_AUTOLOGIN" > /dev/null 2>&1 || true
   pct exec "$id" -- systemctl restart pve-autoupdate-ui > /dev/null 2>&1 || die "$(L "the web UI service does not start" "der Dienst der Weboberfläche startet nicht")"
   log "web UI in container $id updated"
   msg_ok "$(L "Web UI updated" "Weboberfläche aktualisiert")${id:+ ($(L container Container) $id)}"
