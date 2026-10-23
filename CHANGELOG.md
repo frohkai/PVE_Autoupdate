@@ -7,6 +7,7 @@
 - Web UI: banner when a new version is available, with "What's new" from this changelog, and an update button (Sys.Modify); "Program updates" section under Settings
 - Web UI is optional: the setup wizard asks (step 6/6); without it everything runs in the terminal
 - Web UI: settings page for the mail notification with test mail; new logo
+- Web UI container: the Proxmox console logs in as root automatically (like the helper scripts), no password needed
 - Installer: new banner and welcome page, clear box with the web UI address at the end, the mail address may stay empty
 - Fixed: `ui-install` failed right after the wizard (umask); the one-liner failed with "Argument list too long" (now `bash <(curl ...)`)
 - Removed the "review script content" question before installing
