@@ -43,6 +43,7 @@
   - Backups are respected: locked guests are skipped.
   - Scheduled runs only use the locally installed copy; no code is downloaded at runtime.
   - Self-updates show a diff and the SHA256 before anything is replaced.
+  - The update check only looks: it compares with GitHub at most every 12 hours. Installing is always your decision (`self-update` or the button in the web UI).
 
 ## 🚀 Install
 
@@ -111,6 +112,7 @@ Or use the commands directly:
 | `pve-autoupdate status` | settings, next run, last log lines |
 | `pve-autoupdate test-mail` | send a test mail |
 | `pve-autoupdate self-update` | update the script (diff + SHA256) |
+| `pve-autoupdate update-check` | look for a new version on GitHub (installs nothing) |
 | `pve-autoupdate ui-install` / `ui-update` / `ui-remove` | web UI container |
 | `pve-autoupdate uninstall [--purge]` | remove |
 
@@ -205,6 +207,8 @@ Adresse da, z. B. `https://192.168.1.50:8443`.
 - Deinstallieren
 
 Die Befehle aus der Tabelle oben funktionieren genauso.
+
+Ob es eine neue Version gibt, zeigen das Menü, `pve-autoupdate status` und die Weboberfläche (Banner und „Einstellungen → Programm-Updates“). GitHub wird höchstens alle 12 Stunden gefragt; installiert wird nur, wenn du es auslöst – mit `pve-autoupdate self-update` oder dem Button in der Weboberfläche.
 
 ### Was passiert pro Gast
 
