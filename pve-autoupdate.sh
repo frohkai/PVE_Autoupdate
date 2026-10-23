@@ -2076,7 +2076,7 @@ ui_bridges(){ local b; for b in /sys/class/net/*/bridge; do [ -d "$b" ] && basen
 
 ui_wizard(){ # storage and network - sets the locals of cmd_ui_install
   local l n s c opts=()
-  wt --title "$(L "Web UI" "Weboberfläche")" --yes-button "$(L Install Installieren)" --no-button "$(L Cancel Abbrechen)" --yesno "$(L \
+  [ -n "${PVEAU_UI_CONFIRMED:-}" ] || wt --title "$(L "Web UI" "Weboberfläche")" --yes-button "$(L Install Installieren)" --no-button "$(L Cancel Abbrechen)" --yesno "$(L \
 "A small container with the web UI is created on this node ($SELF):\n\n  ID $id · Debian · 1 core · 256 MB RAM · 2 GB disk\n\nEverything is set up automatically: packages, certificate, an SSH key that may only run pve-autoupdate, and the service. You sign in with your Proxmox user." \
 "Auf diesem Node ($SELF) wird ein kleiner Container mit der Weboberfläche angelegt:\n\n  ID $id · Debian · 1 Kern · 256 MB RAM · 2 GB Platte\n\nAlles wird automatisch eingerichtet: Pakete, Zertifikat, ein SSH-Schlüssel, der nur pve-autoupdate ausführen darf, und der Dienst. Angemeldet wird mit deinem Proxmox-Benutzer.")" 17 78 || return 1
   l=$(pvesm status -content rootdir 2>/dev/null | awk 'NR>1 && $3=="active" {print $1" "$2}')
@@ -2276,14 +2276,14 @@ cmd_setup(){
   if [ -n "$CLUSTER_NAME" ]; then intro="$(L "Detected: cluster '$CLUSTER_NAME' with $n_nodes nodes ($NODES)." "Erkannt: Cluster '$CLUSTER_NAME' mit $n_nodes Nodes ($NODES).")"
   else intro="$(L "Detected: single node '$SELF' (no cluster)." "Erkannt: einzelner Node '$SELF' (kein Cluster).")"; fi
   intro="$intro\n$(L "$nlxc containers and $nvm VMs." "$nlxc Container und $nvm VMs.")\n\n$(L \
-"The wizard asks:\n  1. which containers/VMs are updated\n  2. whether nodes and apps are included\n  3. safety net (snapshots) and reboots\n  4. how often\n  5. whether and where to send a mail\n\nThe schedule runs on this node ($SELF)." \
-"Der Assistent fragt:\n  1. welche Container/VMs aktualisiert werden\n  2. ob Nodes und Anwendungen dazugehören\n  3. Sicherheitsnetz (Snapshots) und Neustarts\n  4. wie häufig\n  5. ob und wohin eine Mail geht\n\nDer Zeitplan läuft auf diesem Node ($SELF).")"
+"The wizard asks:\n  1. which containers/VMs are updated\n  2. whether nodes and apps are included\n  3. safety net (snapshots) and reboots\n  4. how often\n  5. whether and where to send a mail\n  6. whether you want a web UI (own small container)\n\nThe schedule runs on this node ($SELF)." \
+"Der Assistent fragt:\n  1. welche Container/VMs aktualisiert werden\n  2. ob Nodes und Anwendungen dazugehören\n  3. Sicherheitsnetz (Snapshots) und Neustarts\n  4. wie häufig\n  5. ob und wohin eine Mail geht\n  6. ob du eine Weboberfläche willst (eigener kleiner Container)\n\nDer Zeitplan läuft auf diesem Node ($SELF).")"
   wt --title "$(L "Set up pve-autoupdate" "pve-autoupdate einrichten")" --ok-button "$(L Next Weiter)" --msgbox "$intro" 20 74 || abort
 
   # ---- 1. guests
   local mode items=() id type name node status tmpl on sel
   if [ "$GUESTS" = all ]; then mode=all; elif [ -z "$GUESTS" ]; then mode=none; else mode=select; fi
-  mode=$(wt --title "1/5  $(L "Containers & VMs" "Container & VMs")" "${ok_btn[@]}" --default-item "$mode" \
+  mode=$(wt --title "1/6  $(L "Containers & VMs" "Container & VMs")" "${ok_btn[@]}" --default-item "$mode" \
     --menu "$(L "Which guests should be updated automatically?" "Welche Gäste sollen automatisch aktualisiert werden?")" 14 74 3 \
     all    "$(L "All containers - new ones are added automatically" "Alle Container - neue kommen automatisch dazu")" \
     select "$(L "Only selected containers/VMs" "Nur ausgewählte Container/VMs")" \
@@ -2321,19 +2321,19 @@ cmd_setup(){
   esac
 
   # ---- 2. nodes and apps
-  UPDATE_HOSTS=$(yn "2/5  Nodes" "$(L "Update the Proxmox nodes themselves too?\n(apt dist-upgrade on $NODES)\n\nWhether they reboot afterwards is asked next." "Sollen auch die Proxmox-Nodes selbst aktualisiert werden?\n(apt dist-upgrade auf $NODES)\n\nOb sie danach neu starten, kommt gleich.")" "$UPDATE_HOSTS")
-  UPDATE_SERVICES=$(yn "2/5  $(L Apps Anwendungen)" "$(L "Update apps inside the guests too?\n\n - Docker Compose stacks (pull + up -d)\n - auto-detected: AdGuard Home, Forgejo, Uptime Kuma, Beszel\n - own services from $SVC_DIR/*.conf\n\nThe package manager (apt, apk, dnf ...) always runs." "Auch Anwendungen in den Gästen aktualisieren?\n\n - Docker-Compose-Stacks (pull + up -d)\n - automatisch erkannt: AdGuard Home, Forgejo, Uptime Kuma, Beszel\n - eigene Dienste aus $SVC_DIR/*.conf\n\nDer Paketmanager (apt, apk, dnf ...) läuft in jedem Fall.")" "$UPDATE_SERVICES")
+  UPDATE_HOSTS=$(yn "2/6  Nodes" "$(L "Update the Proxmox nodes themselves too?\n(apt dist-upgrade on $NODES)\n\nWhether they reboot afterwards is asked next." "Sollen auch die Proxmox-Nodes selbst aktualisiert werden?\n(apt dist-upgrade auf $NODES)\n\nOb sie danach neu starten, kommt gleich.")" "$UPDATE_HOSTS")
+  UPDATE_SERVICES=$(yn "2/6  $(L Apps Anwendungen)" "$(L "Update apps inside the guests too?\n\n - Docker Compose stacks (pull + up -d)\n - auto-detected: AdGuard Home, Forgejo, Uptime Kuma, Beszel\n - own services from $SVC_DIR/*.conf\n\nThe package manager (apt, apk, dnf ...) always runs." "Auch Anwendungen in den Gästen aktualisieren?\n\n - Docker-Compose-Stacks (pull + up -d)\n - automatisch erkannt: AdGuard Home, Forgejo, Uptime Kuma, Beszel\n - eigene Dienste aus $SVC_DIR/*.conf\n\nDer Paketmanager (apt, apk, dnf ...) läuft in jedem Fall.")" "$UPDATE_SERVICES")
 
   if [ "$nvm" -gt 0 ] && { [ "$INCLUDE_VMS" = 1 ] || [ "$GUESTS" != all ]; } && [ -n "$GUESTS" ]; then
-    UPDATE_WINDOWS=$(yn "2/5  Windows" "$(L "Update Windows VMs with Windows Update?\n\n - security and quality updates (no feature upgrades, no drivers)\n - the VM reboots to finish them and is checked afterwards\n - rollback to the snapshot if it does not come back or services fail\n\nNeeds the QEMU guest agent (virtio-win). Can take 30-60 min per VM." "Windows-VMs per Windows Update aktualisieren?\n\n - Sicherheits- und Qualitätsupdates (keine Funktionsupgrades, keine Treiber)\n - die VM startet zum Abschließen neu und wird danach geprüft\n - Rollback auf den Snapshot, wenn sie nicht zurückkommt oder Dienste ausfallen\n\nBraucht den QEMU-Guest-Agent (virtio-win). Kann 30-60 Min. pro VM dauern.")" "$UPDATE_WINDOWS" 18)
+    UPDATE_WINDOWS=$(yn "2/6  Windows" "$(L "Update Windows VMs with Windows Update?\n\n - security and quality updates (no feature upgrades, no drivers)\n - the VM reboots to finish them and is checked afterwards\n - rollback to the snapshot if it does not come back or services fail\n\nNeeds the QEMU guest agent (virtio-win). Can take 30-60 min per VM." "Windows-VMs per Windows Update aktualisieren?\n\n - Sicherheits- und Qualitätsupdates (keine Funktionsupgrades, keine Treiber)\n - die VM startet zum Abschließen neu und wird danach geprüft\n - Rollback auf den Snapshot, wenn sie nicht zurückkommt oder Dienste ausfallen\n\nBraucht den QEMU-Guest-Agent (virtio-win). Kann 30-60 Min. pro VM dauern.")" "$UPDATE_WINDOWS" 18)
   fi
   # ---- 3. safety net and reboots
-  SNAPSHOT=$(wt --title "3/5  $(L "Safety net" Sicherheitsnetz)" "${ok_btn[@]}" --default-item "$SNAPSHOT" --menu "$(L "Take a snapshot before every update? If the health check fails afterwards, the guest is rolled back automatically.\n\n(Snapshots need LVM-thin, ZFS, Ceph or similar - not 'Directory'.)" "Vor jedem Update einen Snapshot anlegen? Schlägt der Health-Check danach fehl, wird automatisch auf den Snapshot zurückgesetzt.\n\n(Snapshots brauchen LVM-Thin, ZFS, Ceph o.ä. - nicht 'Directory'.)")" 17 76 3 \
+  SNAPSHOT=$(wt --title "3/6  $(L "Safety net" Sicherheitsnetz)" "${ok_btn[@]}" --default-item "$SNAPSHOT" --menu "$(L "Take a snapshot before every update? If the health check fails afterwards, the guest is rolled back automatically.\n\n(Snapshots need LVM-thin, ZFS, Ceph or similar - not 'Directory'.)" "Vor jedem Update einen Snapshot anlegen? Schlägt der Health-Check danach fehl, wird automatisch auf den Snapshot zurückgesetzt.\n\n(Snapshots brauchen LVM-Thin, ZFS, Ceph o.ä. - nicht 'Directory'.)")" 17 76 3 \
     optional "$(L "Snapshot if possible, otherwise update without a net" "Snapshot wenn möglich, sonst ohne Netz aktualisieren")" \
     required "$(L "Skip the guest without a snapshot (safest choice)" "Ohne Snapshot wird der Gast übersprungen (sicherste Wahl)")" \
     off      "$(L "No snapshots, no rollback" "Keine Snapshots, kein Rollback")") || abort
   local rsel rg=OFF rh=OFF; [ "$REBOOT_GUESTS" = 1 ] && rg=ON; [ "$REBOOT_HOSTS" = 1 ] && rh=ON
-  rsel=$(wt --title "3/5  $(L Reboots Neustarts)" "${ok_btn[@]}" --checklist "$(L "Reboot automatically when an update needs it?" "Automatisch neu starten, wenn ein Update es verlangt?")" 13 78 2 \
+  rsel=$(wt --title "3/6  $(L Reboots Neustarts)" "${ok_btn[@]}" --checklist "$(L "Reboot automatically when an update needs it?" "Automatisch neu starten, wenn ein Update es verlangt?")" 13 78 2 \
     guests "$(L "Containers/VMs (e.g. after a libc update)" "Container/VMs (z.B. nach libc-Update)")" "$rg" \
     hosts  "$(L "Nodes (kernel update) - one after another in a cluster" "Nodes (Kernel-Update) - im Cluster einer nach dem anderen")" "$rh") || abort
   REBOOT_GUESTS=0; REBOOT_HOSTS=0
@@ -2347,7 +2347,7 @@ cmd_setup(){
   freq=weekly
   [[ "$SCHEDULE" =~ ^\*-\*-\* ]] && freq=daily
   [[ "$SCHEDULE" =~ 01\.\.07 ]] && freq=monthly
-  freq=$(wt --title "4/5  $(L "How often?" "Wie häufig?")" "${ok_btn[@]}" --default-item "$freq" --menu "$(L "When should the updates run?" "Wann sollen die Updates laufen?")" 14 74 4 \
+  freq=$(wt --title "4/6  $(L "How often?" "Wie häufig?")" "${ok_btn[@]}" --default-item "$freq" --menu "$(L "When should the updates run?" "Wann sollen die Updates laufen?")" 14 74 4 \
     daily   "$(L Daily Täglich)" \
     weekly  "$(L "Weekly (choose the weekday)" "Wöchentlich (Wochentag wählen)")" \
     monthly "$(L "Monthly (first weekday of the month)" "Monatlich (erster Wochentag im Monat)")" \
@@ -2381,7 +2381,7 @@ cmd_setup(){
   fi
 
   # ---- 5. notification
-  NOTIFY=$(wt --title "5/5  $(L Notification Benachrichtigung)" "${ok_btn[@]}" --default-item "$NOTIFY" --menu "$(L "When should a mail be sent?" "Wann soll eine Mail kommen?")" 14 74 4 \
+  NOTIFY=$(wt --title "5/6  $(L Notification Benachrichtigung)" "${ok_btn[@]}" --default-item "$NOTIFY" --menu "$(L "When should a mail be sent?" "Wann soll eine Mail kommen?")" 14 74 4 \
     errors  "$(L "Only when something went wrong (recommended)" "Nur wenn etwas schiefgelaufen ist (empfohlen)")" \
     changes "$(L "On problems and when something was updated" "Bei Problemen und wenn etwas aktualisiert wurde")" \
     always  "$(L "After every run" "Nach jedem Lauf")" \
@@ -2422,6 +2422,13 @@ cmd_setup(){
     TITLE=$(wt --title "Name" "${ok_btn[@]}" --inputbox "$(L "Name in the subject, e.g. [$TITLE] Updates: ..." "Name im Betreff, z.B. [$TITLE] Updates: ...")" 9 74 "$TITLE") || abort
   fi
 
+  # ---- 6. web UI: optional - a small container, otherwise everything runs in the terminal
+  local want_ui=0
+  if ui_exists; then want_ui=1
+  else
+    want_ui=$(yn "6/6  $(L "Web UI" "Weboberfläche")" "$(L "Do you want a web UI?\n\nYes: a small Linux container (Debian, 1 core, 256 MB RAM, 2 GB disk) with a web interface in your browser - overview, start updates, history, settings.\n\nNo: no container. You do everything in the terminal with 'pve-autoupdate'.\n\nYou can add it later any time: pve-autoupdate ui-install" "Möchtest du eine Weboberfläche?\n\nJa: ein kleiner Linux-Container (Debian, 1 Kern, 256 MB RAM, 2 GB Platte) mit Weboberfläche im Browser - Übersicht, Updates starten, Verlauf, Einstellungen.\n\nNein: kein Container. Du machst alles im Terminal mit 'pve-autoupdate'.\n\nNachrüsten geht jederzeit: pve-autoupdate ui-install")" 1 20)
+  fi
+
   # ---- summary
   wt --title "$(L Summary Zusammenfassung)" --yes-button "$(L Save Speichern)" --no-button "$(L Cancel Abbrechen)" --yesno "$(L "Guests:          " "Gäste:           ")$(guests_text)
 $(L "Update nodes:    " "Nodes updaten:   ")$(yesno_txt "$UPDATE_HOSTS")
@@ -2431,8 +2438,9 @@ $(L "Reboot guests:   " "Neustart Gäste:  ")$(yesno_txt "$REBOOT_GUESTS")
 $(L "Reboot nodes:    " "Neustart Nodes:  ")$(yesno_txt "$REBOOT_HOSTS")
 $(L "Schedule:        " "Zeitplan:        ")$(describe_schedule)
 Mail:            $(notify_text)
+$(L "Web UI:          " "Weboberfläche:   ")$(yesno_txt "$want_ui")
 
-$(L "Save and activate?" "Speichern und aktivieren?")" 20 78 || abort
+$(L "Save and activate?" "Speichern und aktivieren?")" 21 78 || abort
 
   header_info
   [ -x "$BIN" ] || install_self
@@ -2449,12 +2457,20 @@ $(L "Save and activate?" "Speichern und aktivieren?")" 20 78 || abort
   if [ "$(yn "$(L "Dry run" Testlauf)" "$(L "Do a dry run now?\n\nNothing is changed - it only checks what there is to update and whether all guests are reachable." "Jetzt einen Testlauf machen?\n\nEs wird nichts verändert - nur geprüft, was es zu aktualisieren gäbe und ob alle Gäste erreichbar sind.")" 1)" = 1 ]; then
     ( cmd_run --dry-run ) || true
   fi
-  # web UI: the wizard of ui-install starts with its own yes/no
-  ui_exists || ( PVEAU_IN_SETUP=1; cmd_ui_install ) || true
+  # web UI only when chosen in step 6 - its wizard then skips the second yes/no
+  if [ "$want_ui" = 1 ] && ! ui_exists; then ( PVEAU_IN_SETUP=1; PVEAU_UI_CONFIRMED=1; cmd_ui_install ) || true; fi
   echo
   msg_ok "$(L "Done. Run 'pve-autoupdate' again any time to open the menu." "Fertig. 'pve-autoupdate' jederzeit erneut aufrufen, um das Menü zu öffnen.")"
   has_donate && echo -e "${TAB}${MUT}♥ $(L "If pve-autoupdate saves you time, I'd appreciate your support on Liberapay:" "Wenn dir pve-autoupdate Zeit spart, freue ich mich über Unterstützung auf Liberapay:")${CL} ${AC}$DONATE_URL${CL}"
-  ui_box
+  if ui_exists; then ui_box
+  else
+    echo
+    echo -e "${TAB}${MUT}$(L "No web UI - everything runs in the terminal:" "Keine Weboberfläche - alles läuft im Terminal:")${CL}"
+    echo -e "${TAB}  ${AC}pve-autoupdate${CL}         ${INK}$(L "menu" "Menü")${CL}"
+    echo -e "${TAB}  ${AC}pve-autoupdate status${CL}  ${INK}$(L "settings, next run, log" "Einstellungen, nächster Lauf, Log")${CL}"
+    echo -e "${TAB}  ${AC}pve-autoupdate run${CL}     ${INK}$(L "updates now" "Updates jetzt")${CL}"
+    echo -e "${TAB}${MUT}$(L "Add the web UI later with:" "Weboberfläche später nachrüsten mit:")${CL} ${AC}pve-autoupdate ui-install${CL}"
+  fi
   return 0
 }
 
@@ -2545,8 +2561,8 @@ cmd_interactive(){
   [ -n "${PVE_AUTOUPDATE_LANG:-}" ] || choose_language || exit 0
   header_info
   wt --title "$(L "Welcome" "Willkommen")" --yes-button "$(L "Install" "Installieren")" --no-button "$(L Cancel Abbrechen)" --yesno "$(L \
-"pve-autoupdate keeps your Proxmox node or cluster up to date by itself.\n\n  ✔  containers and VMs (Linux and Windows)\n  ✔  apps inside the guests (Docker, AdGuard, Forgejo ...)\n  ✔  the Proxmox nodes themselves\n\nSafe by design:\n  ▸  a snapshot before every update\n  ▸  health check, automatic rollback on failure\n  ▸  a mail report when something goes wrong\n\nNext, the program is installed on this node and the wizard\nasks five short questions.\n\nInstall now?" \
-"pve-autoupdate hält deinen Proxmox-Node oder -Cluster von selbst aktuell.\n\n  ✔  Container und VMs (Linux und Windows)\n  ✔  Anwendungen in den Gästen (Docker, AdGuard, Forgejo ...)\n  ✔  die Proxmox-Nodes selbst\n\nSicher gebaut:\n  ▸  ein Snapshot vor jedem Update\n  ▸  Health-Check, bei Fehlern automatischer Rollback\n  ▸  ein Mail-Bericht, wenn etwas schiefgeht\n\nAls Nächstes wird das Programm auf diesem Node installiert, und\nder Assistent stellt fünf kurze Fragen.\n\nJetzt installieren?")" 25 72 || { clear; exit 0; }
+"pve-autoupdate keeps your Proxmox node or cluster up to date by itself.\n\n  ✔  containers and VMs (Linux and Windows)\n  ✔  apps inside the guests (Docker, AdGuard, Forgejo ...)\n  ✔  the Proxmox nodes themselves\n\nSafe by design:\n  ▸  a snapshot before every update\n  ▸  health check, automatic rollback on failure\n  ▸  a mail report when something goes wrong\n\nNext, the program is installed on this node and the wizard\nasks six short questions.\n\nInstall now?" \
+"pve-autoupdate hält deinen Proxmox-Node oder -Cluster von selbst aktuell.\n\n  ✔  Container und VMs (Linux und Windows)\n  ✔  Anwendungen in den Gästen (Docker, AdGuard, Forgejo ...)\n  ✔  die Proxmox-Nodes selbst\n\nSicher gebaut:\n  ▸  ein Snapshot vor jedem Update\n  ▸  Health-Check, bei Fehlern automatischer Rollback\n  ▸  ein Mail-Bericht, wenn etwas schiefgeht\n\nAls Nächstes wird das Programm auf diesem Node installiert, und\nder Assistent stellt sechs kurze Fragen.\n\nJetzt installieren?")" 25 72 || { clear; exit 0; }
   install_self
   cmd_setup
 }
