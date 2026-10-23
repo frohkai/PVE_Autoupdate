@@ -3,6 +3,7 @@
 ## 2.1.0 - 2026-10-23
 
 - Program updates: `pve-autoupdate update-check` looks for a new version on GitHub (at most every 12 hours, installs nothing); hint in the menu and in `status`
+- Mail report: a new program version is mentioned in subject and report, and mailed once even when the notification is set to "only on problems"
 - Web UI: banner when a new version is available, with "What's new" from this changelog, and an update button (Sys.Modify); "Program updates" section under Settings
 - Web UI is optional: the setup wizard asks (step 6/6); without it everything runs in the terminal
 - Web UI: settings page for the mail notification with test mail; new logo
