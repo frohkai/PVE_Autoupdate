@@ -53,7 +53,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/frohkai/PVE_Autoupdate/main/
 ```
 
 The script shows its SHA256 and installs itself to
-`/usr/local/sbin/pve-autoupdate`. Then a wizard asks five questions:
+`/usr/local/sbin/pve-autoupdate`. Then a wizard asks six questions:
 
 | Step | Question |
 |---|---|
@@ -62,10 +62,14 @@ The script shows its SHA256 and installs itself to
 | 3 | Snapshots (`optional` / `required` / `off`) and automatic reboots? |
 | 4 | How often, and from when to when? (daily / weekly / monthly / custom, time window e.g. `02:00-05:00`) |
 | 5 | Mail notification? When and where to? |
+| 6 | Web UI? Yes: a small container with a web interface. No: everything stays in the terminal. |
 
-At the end it offers a test mail, a dry run that changes nothing, and the web UI.
+At the end it offers a test mail and a dry run that changes nothing, and - if you chose it - sets up the web UI.
 
 ## 🖥️ Web UI
+
+Optional - the wizard asks whether you want it. Without it you use everything in the terminal (`pve-autoupdate`),
+and you can add it later any time with `pve-autoupdate ui-install`.
 
 A small Debian container (1 core, 256 MB RAM, 2 GB disk) with a web interface: overview of nodes,
 containers and VMs, start checks and updates, live view, history. You sign in with your **Proxmox user**
@@ -170,10 +174,13 @@ Beim Start wählst du **Deutsch** aus. Danach fragt der Assistent:
 3. Snapshots und Neustarts
 4. wie häufig und in welchem Zeitfenster (z. B. 02:00-05:00 - was bis 05:00 nicht fertig ist, auch Neustarts, wartet auf den nächsten Lauf)
 5. ob und wohin eine Mail geht
+6. ob du eine Weboberfläche willst (eigener kleiner Container) - ohne läuft alles im Terminal
 
-Am Ende gibt es eine Testmail, einen Testlauf, der nichts verändert, und die Weboberfläche.
+Am Ende gibt es eine Testmail und einen Testlauf, der nichts verändert, und - wenn gewünscht - die Weboberfläche.
 
 ### Weboberfläche
+
+Die Weboberfläche ist optional, der Assistent fragt danach. Nachrüsten geht jederzeit mit `pve-autoupdate ui-install`.
 
 `pve-autoupdate ui-install` (oder im Menü „Weboberfläche“) legt einen kleinen Debian-Container an
 (1 Kern, 256 MB RAM, 2 GB) und richtet alles selbst ein: Pakete, Zertifikat, einen SSH-Schlüssel, der nur
