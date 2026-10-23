@@ -422,6 +422,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
                 rc, out, err = remote(["test-mail"], timeout=90)
                 return self.send(200, {"ok": rc == 0, "output": (out + err)[-2000:]})
+            if u.path == "/api/update-check":
+                s = self.session()
+                if not s:
+                    return
+                args = ["update-check", "--json"] + (["--force"] if body.get("force") else [])
+                return self.send(200, remote_json(args, timeout=60))
+            if u.path == "/api/update-start":
+                s = self.session(write=True)
+                if not s:
+                    return
+                res = remote_json(["update-start"])
+                if res.get("ok"):
+                    log("%s started the program update" % s["user"])
+                return self.send(200 if res.get("ok") else 409, res)
             return self.send(404, {"error": "not found"})
         except ApiError as e:
             return self.send(502, {"error": "node", "detail": str(e)})
