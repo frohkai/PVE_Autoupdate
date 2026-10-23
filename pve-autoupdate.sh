@@ -21,14 +21,15 @@
 
 set -uo pipefail
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 AUTHOR="Kai Frohwerk"
 REPO="frohkai/PVE_Autoupdate"
 WEBSITE="https://kaimazon.de"
 DONATE_URL="https://liberapay.com/__LIBERAPAY_USER__/donate"
 LOGO_URL="__LOGO_URL__"     # hosted PNG for the mail header (mail clients block SVG/inline images)
 REPO_URL="https://github.com/$REPO"
-RAW_URL="https://raw.githubusercontent.com/$REPO/main/pve-autoupdate.sh"
+RAW_URL="${PVE_AUTOUPDATE_RAW_URL:-https://raw.githubusercontent.com/$REPO/main/pve-autoupdate.sh}"
+CHANGELOG_URL="${RAW_URL%/*}/CHANGELOG.md"
 
 BIN=/usr/local/sbin/pve-autoupdate
 CONF_DIR=/etc/pve-autoupdate
@@ -1346,6 +1347,7 @@ guest_os(){ # type node id -> ostype from the config (pmxcfs, readable on every 
 # everything the overview page needs, in one call
 cmd_inventory(){
   need_root; need_pve; load_config; load_nodes
+  upd_stale && ( setsid "$BIN" update-check </dev/null >/dev/null 2>&1 & )
   local v n id type name node status tmpl sel running=0 pass=0
   is_running && running=1
   [ -n "$SMTP_PASS" ] && pass=1
@@ -1353,7 +1355,9 @@ cmd_inventory(){
     printf 'M|%s|%s\n' version "$VERSION" lang "$UI_LANG" cluster "$CLUSTER_NAME" self "$SELF" \
       running "$running" last_run "$(cat "$STATE/last-run" 2>/dev/null)" schedule_text "$(describe_schedule)" \
       next_run "$(next_run)" smtp_pass_set "$pass" reboot_pending "$([ -f "$STATE/reboot-pending" ] && echo 1 || echo 0)" \
-      in_window "$(in_window && echo 1 || echo 0)"
+      in_window "$(in_window && echo 1 || echo 0)" \
+      update_available "$(upd_available && echo 1 || echo 0)" latest_version "$(upd_get latest)" \
+      update_checked "$(upd_get checked)" update_error "$(upd_get error)"
     for n in $NODES; do echo "N|$n|${NODE_IP[$n]:-}|${NODE_ONLINE[$n]:-0}"; done
     while IFS='|' read -r -u 3 id type name node status tmpl; do
       [ -n "$id" ] || continue
@@ -1376,7 +1380,7 @@ for l in sys.stdin.read().split("\n"):
                             "template": f[6] == "1", "selected": f[7] == "1", "os": f[8]})
     elif l.startswith("C|"):
         _, k, v = l.split("|", 2); d["config"][k] = v
-for k in ("running", "smtp_pass_set", "reboot_pending", "in_window"):
+for k in ("running", "smtp_pass_set", "reboot_pending", "in_window", "update_available"):
     d[k] = d.get(k) == "1"
 # last real result per guest / node: "update" from live runs, "check" from dry runs
 try:
@@ -1398,7 +1402,13 @@ for f in files:
             if slot not in ent:
                 ent[slot] = {"run": f[:-6], "ts": e.get("ts"), "status": e.get("status"), "summary": e.get("summary", ""),
                              "pkgs": int(e.get("pkgs") or 0), "reboot": e.get("reboot") == "yes"}
-print(json.dumps(d, ensure_ascii=False))' "$RUNS"
+d["update_notes"] = []
+if d["update_available"]:
+    try:
+        d["update_notes"] = [l.rstrip("\n") for l in open(sys.argv[2], encoding="utf-8", errors="replace") if l.strip()][:12]
+    except OSError:
+        pass
+print(json.dumps(d, ensure_ascii=False))' "$RUNS" "$UPD_NOTES"
 }
 
 HISTORY_PY='
@@ -1580,7 +1590,7 @@ cmd_remote(){
   [[ "$c" =~ ^[A-Za-z0-9\ ._,:=-]*$ ]] && read -r -a a <<< "$c"
   [ "${a[0]:-}" = pve-autoupdate ] && a=("${a[@]:1}")
   case "${a[0]:-}" in
-    version|inventory|history|events|start|log|test-mail|api-fingerprint) ok=1 ;;
+    version|inventory|history|events|start|log|test-mail|api-fingerprint|update-check|update-start) ok=1 ;;
     config) [ "${a[1]:-}" = set ] && [ "${#a[@]}" = 2 ] && ok=1 ;;
   esac
   [ "$ok" = 1 ] || { json_err "not allowed"; exit 1; }
@@ -1805,6 +1815,8 @@ next_run(){
 cmd_status(){
   load_config
   echo -e "${BL}pve-autoupdate $VERSION${CL}  ($(L "language" "Sprache"): $UI_LANG)"
+  update_check
+  echo "  $(L "Program update  " "Programm-Update "): $(upd_text)"
   echo "  $(L "Guests          " "Gäste           "): $(guests_text)"
   echo "  $(L "Update nodes    " "Nodes updaten   "): $(yesno_txt "$UPDATE_HOSTS")"
   echo "  $(L "Apps            " "Anwendungen     "): $(yesno_txt "$UPDATE_SERVICES")"
@@ -1934,8 +1946,100 @@ cmd_self_update(){
   install -m 755 "$tmp" "$BIN"; rm -f "$tmp"
   load_config; [ -f "$CONF" ] && install_units
   msg_ok "$(L "Updated to" "Aktualisiert auf") $newv"
+  "$BIN" update-check --force >/dev/null 2>&1 || true
   # the new copy brings the matching web UI along
   if ui_exists; then PVE_AUTOUPDATE_UI_SRC="" "$BIN" ui-update || true; fi
+}
+
+# ---------------------------------------------------------------- program update check
+# Only looks: fetches the newest script from GitHub, compares it with this copy and
+# remembers the result for UPD_MAX_AGE. Installing stays a decision of the user
+# (self-update in the terminal, or the button in the web UI).
+UPD_FILE="$STATE/update-check"; UPD_NOTES="$STATE/update-notes"; UPD_MAX_AGE=43200
+upd_get(){ sed -n "s/^$1=//p" "$UPD_FILE" 2>/dev/null | head -n 1; }
+bin_sha(){ sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1; }
+ver_gt(){ [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]; }
+upd_valid(){ [ -f "$UPD_FILE" ] && [ "$(upd_get binsha)" = "$(bin_sha)" ]; }
+upd_stale(){ ! upd_valid || [ $(( $(date +%s) - $(upd_get checked) )) -ge "$UPD_MAX_AGE" ]; }
+upd_available(){ upd_valid && [ "$(upd_get available)" = 1 ]; }
+update_check(){ # [force] - refresh $UPD_FILE when it is older than UPD_MAX_AGE
+  [ "${1:-}" = force ] || upd_stale || return 0
+  has_repo || return 0
+  mkdir -p "$STATE" 2>/dev/null || return 0
+  ( flock -n 8 || exit 0
+    local tmp newv="" avail=0 err="" cur
+    tmp=$(mktemp); cur=$(bin_sha)
+    if curl -fsSL --max-time 20 "$RAW_URL" -o "$tmp" 2>/dev/null && grep -q '^VERSION=' "$tmp" && bash -n "$tmp" 2>/dev/null; then
+      newv=$(grep -m1 '^VERSION=' "$tmp" | cut -d'"' -f2)
+      if ver_gt "$newv" "$VERSION"; then avail=1
+      elif [ "$newv" = "$VERSION" ] && [ "$(sha256sum "$tmp" | cut -d' ' -f1)" != "$cur" ]; then avail=1; fi
+      curl -fsSL --max-time 15 "$CHANGELOG_URL" 2>/dev/null \
+        | awk -v v="$newv" '/^## /{ if (f) exit; if (index($0, v)) { f=1; next } } f && NF' \
+        | head -n 12 | cut -c1-200 > "$UPD_NOTES.tmp" && mv "$UPD_NOTES.tmp" "$UPD_NOTES"
+    else
+      err=unreachable; newv=$(upd_get latest)
+      [ "$(upd_get binsha)" = "$cur" ] && avail=$(upd_get available)
+    fi
+    rm -f "$tmp"
+    printf 'checked=%s\ncurrent=%s\nlatest=%s\navailable=%s\nerror=%s\nbinsha=%s\n' \
+      "$(date +%s)" "$VERSION" "$newv" "${avail:-0}" "$err" "$cur" > "$UPD_FILE.tmp" && mv "$UPD_FILE.tmp" "$UPD_FILE"
+  ) 8>"$STATE/update-check.lock"
+  return 0
+}
+upd_text(){
+  if [ ! -f "$UPD_FILE" ]; then L "not checked yet (pve-autoupdate update-check)" "noch nicht geprüft (pve-autoupdate update-check)"
+  elif upd_available; then L "version $(upd_get latest) available - install: pve-autoupdate self-update" "Version $(upd_get latest) verfügbar - installieren: pve-autoupdate self-update"
+  elif [ -n "$(upd_get error)" ]; then L "check failed - GitHub not reachable" "Prüfung fehlgeschlagen - GitHub nicht erreichbar"
+  else L "up to date" "aktuell"; fi
+}
+
+cmd_update_check(){ # [--force] [--json]
+  need_root
+  local force="" json=0 a
+  for a in "$@"; do
+    case "$a" in --force) force=force ;; --json) json=1 ;; *) die "$(L "unknown option" "unbekannte Option"): $a" ;; esac
+  done
+  [ "$json" = 1 ] || msg_info "$(L "Checking for a new version" "Suche nach neuer Version") ..."
+  update_check "$force"
+  if [ "$json" = 1 ]; then
+    python3 -c 'import json, sys
+d = dict(l.rstrip("\n").split("=", 1) for l in open(sys.argv[1], encoding="utf-8") if "=" in l)
+avail = d.get("available") == "1" and d.get("binsha") == sys.argv[3]
+notes = []
+if avail:
+    try:
+        notes = [l.rstrip("\n") for l in open(sys.argv[2], encoding="utf-8", errors="replace") if l.strip()][:12]
+    except OSError:
+        pass
+print(json.dumps({"ok": True, "current": sys.argv[4], "latest": d.get("latest", ""), "available": avail,
+                  "checked": int(d.get("checked") or 0), "error": d.get("error", ""), "notes": notes}, ensure_ascii=False))' \
+      "$UPD_FILE" "$UPD_NOTES" "$(bin_sha)" "$VERSION" 2>/dev/null || json_err "no result"
+    return
+  fi
+  stop_spinner
+  if upd_available; then
+    msg_ok "$(L "New version available" "Neue Version verfügbar"): $VERSION -> $(upd_get latest)"
+    if [ -s "$UPD_NOTES" ]; then echo -e "${TAB}${MUT}$(L "What's new:" "Neu:")${CL}"; sed "s/^/${TAB}  /" "$UPD_NOTES"; fi
+    echo -e "${TAB}$(L "Install with" "Installieren mit"): ${AC}pve-autoupdate self-update${CL}"
+  elif [ -n "$(upd_get error)" ]; then
+    msg_warn "$(L "GitHub is not reachable - no check possible" "GitHub nicht erreichbar - keine Prüfung möglich") ($RAW_URL)"
+  else
+    msg_ok "$(L "Up to date" "Aktuell"): $VERSION"
+  fi
+  return 0
+}
+
+# for the web UI: self-update restarts the web UI itself, so it runs detached on the node
+cmd_update_start(){
+  need_root
+  upd_available || { json_err "no update available"; return 1; }
+  is_running && { json_err "already running"; return 1; }
+  systemd-run --quiet --collect --unit="$UNIT-selfupdate-$(date +%s)" \
+    ${PVE_AUTOUPDATE_RAW_URL:+--setenv=PVE_AUTOUPDATE_RAW_URL=$PVE_AUTOUPDATE_RAW_URL} \
+    ${PVE_AUTOUPDATE_UI_RAW:+--setenv=PVE_AUTOUPDATE_UI_RAW=$PVE_AUTOUPDATE_UI_RAW} \
+    "$BIN" self-update --yes >/dev/null 2>&1 || { json_err "could not start"; return 1; }
+  log "program update to $(upd_get latest) started from the web UI"
+  echo '{"ok": true}'
 }
 
 cmd_uninstall(){
@@ -1962,8 +2066,8 @@ cmd_uninstall(){
 #  systemd service. Nothing to do by hand.
 # ============================================================================
 UI_CONF="$CONF_DIR/ui.conf"
-UI_RAW="https://raw.githubusercontent.com/$REPO/main/ui"
-UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg"
+UI_RAW="${PVE_AUTOUPDATE_UI_RAW:-https://raw.githubusercontent.com/$REPO/main/ui}"
+UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg static/emblem.svg"
 UI_DIR=/opt/pve-autoupdate-ui      # inside the container
 UI_ETC=/etc/pve-autoupdate-ui      # inside the container
 UI_PORT=8443
@@ -2494,12 +2598,18 @@ show_log(){
 }
 
 main_menu(){
-  local c
+  local c upd updtag
+  if upd_stale; then header_info; msg_info "$(L "Checking for a new version" "Suche nach neuer Version") ..."; update_check; stop_spinner; fi
   while :; do
     load_config
     header_info
+    upd=""; updtag=""
+    if upd_available; then
+      upd="\n\n★ $(L "New version $(upd_get latest) available - choose 'Update pve-autoupdate'" "Neue Version $(upd_get latest) verfügbar - Menüpunkt 'pve-autoupdate aktualisieren'")"
+      updtag="  ★ $(upd_get latest)"
+    fi
     c=$(wt --title "pve-autoupdate $VERSION" --ok-button "$(L Select Auswählen)" --cancel-button "$(L Exit Beenden)" \
-      --menu "$(L "Next run" "Nächster Lauf"): $(next_run)\n$(L "Schedule" "Zeitplan"): $(describe_schedule)" 22 74 11 \
+      --menu "$(L "Next run" "Nächster Lauf"): $(next_run)\n$(L "Schedule" "Zeitplan"): $(describe_schedule)$upd" 24 74 11 \
       run      "$(L "Run updates now" "Updates jetzt ausführen")" \
       dryrun   "$(L "Dry run (check only, change nothing)" "Testlauf (nur prüfen, nichts ändern)")" \
       setup    "$(L "Change settings" "Einstellungen ändern")" \
@@ -2507,7 +2617,7 @@ main_menu(){
       log      "$(L "View log" "Log ansehen")" \
       testmail "$(L "Send test mail" "Testmail senden")" \
       webui    "$(L "Web UI" "Weboberfläche")" \
-      update   "$(L "Update pve-autoupdate" "pve-autoupdate aktualisieren")" \
+      update   "$(L "Update pve-autoupdate" "pve-autoupdate aktualisieren")$updtag" \
       language "Language / Sprache" \
       about    "$(L "About & support" "Über & Unterstützen") ♥" \
       remove   "$(L "Uninstall" "Deinstallieren")") || { clear; exit 0; }
@@ -2580,6 +2690,7 @@ pve-autoupdate $VERSION by $AUTHOR - $(L "unattended updates for Proxmox VE (nod
   pve-autoupdate status          $(L "settings, next run, last log lines" "Einstellungen, nächster Lauf, letzte Log-Zeilen")
   pve-autoupdate test-mail       $(L "send a test mail" "Testmail senden")
   pve-autoupdate self-update     $(L "update pve-autoupdate itself (diff + SHA256)" "pve-autoupdate selbst aktualisieren (Diff + SHA256)")
+  pve-autoupdate update-check    $(L "look for a new version on GitHub (installs nothing)" "auf GitHub nach neuer Version schauen (installiert nichts)")
   pve-autoupdate uninstall       $(L "remove timer and program (--purge: settings and web UI too)" "Timer und Programm entfernen (--purge: auch Einstellungen und Weboberfläche)")
 
   pve-autoupdate ui-install      $(L "create the web UI container (wizard; or --yes with" "Weboberflächen-Container anlegen (Assistent; oder --yes mit")
@@ -2587,7 +2698,7 @@ pve-autoupdate $VERSION by $AUTHOR - $(L "unattended updates for Proxmox VE (nod
   pve-autoupdate ui-update       $(L "copy the current web UI into the container" "aktuelle Weboberfläche in den Container kopieren")
   pve-autoupdate ui-remove       $(L "remove the web UI container and its access" "Weboberflächen-Container und seinen Zugang entfernen")
 
-$(L "For the web UI container (JSON):" "Für den Weboberflächen-Container (JSON):") inventory, history, events, start, config set, log, api-fingerprint
+$(L "For the web UI container (JSON):" "Für den Weboberflächen-Container (JSON):") inventory, history, events, start, config set, log, api-fingerprint, update-check --json, update-start
   pve-autoupdate pair "<key>"    $(L "let the web UI in - its SSH key may only run pve-autoupdate" "Weboberfläche zulassen - ihr SSH-Schlüssel darf nur pve-autoupdate ausführen")
   pve-autoupdate unpair          $(L "remove that access again" "diesen Zugang wieder entfernen")
 
@@ -2610,6 +2721,8 @@ dispatch(){
     test-mail)   cmd_test_mail ;;
     postcheck)   shift; need_root; cmd_postcheck "$@" ;;
     self-update|update) shift; cmd_self_update "$@" ;;
+    update-check) shift; cmd_update_check "$@" ;;
+    update-start) cmd_update_start ;;
     uninstall)   shift; cmd_uninstall "$@" ;;
     version|--version|-v) echo "pve-autoupdate $VERSION" ;;
     inventory)   cmd_inventory ;;
