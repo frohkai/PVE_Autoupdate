@@ -1153,7 +1153,7 @@ describe_schedule(){
 
 # build report -> REPORT_SUBJECT, REPORT_TXT, REPORT_HTML, counters
 build_report(){
-  local st total okc failc warnc rbc skipc pkgsum chg head col emo subj pfx cell cur
+  local st total okc failc warnc rbc skipc pkgsum chg head col emo subj pfx cell cur updv=""
   st="$(stamp)"
   total=$(grep -c . "$RESULTS"); okc=$(awk -F'|' '$5=="OK"' "$RESULTS" | wc -l)
   failc=$(awk -F'|' '$5=="FAIL"' "$RESULTS" | wc -l); warnc=$(awk -F'|' '$5=="WARN"' "$RESULTS" | wc -l)
@@ -1170,6 +1170,7 @@ build_report(){
   elif [ "$chg" -gt 0 ]; then head="$(L "Updates installed" "Updates installiert")"; col="#137333"; emo="&#9989;"; subj="✅ $(pkgs_txt "$pkgsum") $(L updated aktualisiert)"
   else head="$(L "Everything up to date" "Alles aktuell")"; col="#137333"; emo="&#9989;"; subj="✅ $(L "everything up to date" "alles aktuell")"; fi
   REPORT_SUBJECT="${pfx}[$TITLE] Updates: $subj"
+  if upd_available; then updv=$(upd_get latest); REPORT_SUBJECT="$REPORT_SUBJECT · ⬆️ pve-autoupdate $updv $(L available verfügbar)"; fi
 
   REPORT_TXT="$WORK/report.txt"; REPORT_HTML="$WORK/report.html"
   sorted(){ awk -F'|' '{o=($1=="NODE")?0:(($1=="LXC")?1:2); print $4"|"o"|"$0}' "$RESULTS" | sort -t'|' -k1,1 -k2,2n -k4,4n | cut -d'|' -f3-; }
@@ -1177,6 +1178,13 @@ build_report(){
     echo "pve-autoupdate - $TITLE - $st ($(L mode Modus): $MODE)"
     L "Machines: $total | OK: $okc | Warnings: $warnc | Rolled back: $rbc | Errors: $failc | Skipped: $skipc | Packages: $pkgsum" \
       "Maschinen: $total | OK: $okc | Warnungen: $warnc | Zurückgesetzt: $rbc | Fehler: $failc | Übersprungen: $skipc | Pakete: $pkgsum"; echo
+    if [ -n "$updv" ]; then
+      echo
+      echo "$(L "New version of pve-autoupdate available" "Neue Version von pve-autoupdate verfügbar"): $VERSION -> $updv"
+      [ -s "$UPD_NOTES" ] && sed 's/^/  /' "$UPD_NOTES"
+      echo "$(L "Install: pve-autoupdate self-update (or the button in the web UI)" "Installieren: pve-autoupdate self-update (oder der Button in der Weboberfläche)")"
+      echo
+    fi
     echo "--------------------------------------------------------------------------------"
     sorted | while IFS='|' read -r k id name node s pk rb ch sm; do
       [ "$rb" = yes ] && sm="$sm [$(L "reboot needed" "Neustart nötig")]"
@@ -1190,6 +1198,16 @@ build_report(){
   {
     html_open "PROXMOX &middot; AUTO-UPDATE &middot; $(he "$TITLE")${pfx:+ &middot; $(L "DRY RUN" TESTLAUF)}" "$head" "$col" "$emo" "$st"
     echo "<div style=\"padding:16px 22px 8px;font-size:14px;color:#37474f;line-height:1.9\"><b>$total</b> $(L machines Maschinen) &middot; <b style=\"color:#1a73e8\">$pkgsum</b> $(L packages Pakete) &middot; <b style=\"color:$([ "$failc" -gt 0 ] && echo '#c5221f' || echo '#137333')\">$failc</b> $(L errors Fehler) &middot; <b>$rbc</b> $(L "rolled back" zurückgesetzt) &middot; <b>$warnc</b> $(L warnings Warnungen)</div>"
+    if [ -n "$updv" ]; then
+      echo "<div style=\"margin:6px 20px 12px;padding:12px 14px;background:#fff8e6;border:1px solid #f2c46b;border-radius:10px;font-size:14px;color:#5c4400\">"
+      echo "<div style=\"font-weight:700;color:#8a5a00\">&#11014;&#65039; $(L "New version of pve-autoupdate available" "Neue Version von pve-autoupdate verfügbar"): $(he "$VERSION") &rarr; $(he "$updv")</div>"
+      if [ -s "$UPD_NOTES" ]; then
+        echo '<ul style="margin:6px 0 4px;padding-left:18px;font-size:13px;color:#5f4b1e;line-height:1.5">'
+        sed 's/^[[:space:]]*[-*][[:space:]]*//' "$UPD_NOTES" | while IFS= read -r l; do echo "<li>$(he "$l")</li>"; done
+        echo '</ul>'
+      fi
+      echo "<div style=\"font-size:12px;color:#8a6d3b;margin-top:6px\">$(L "Install" "Installieren"): <code>pve-autoupdate self-update</code> $(L "or the button in the web UI" "oder der Button in der Weboberfläche")</div></div>"
+    fi
     echo '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0">'
     echo "<tr style=\"background:#fafafa\"><th style=\"$cell;text-align:left;font-size:12px;color:#80868b\">$(L Machine Maschine)</th><th style=\"$cell;text-align:left;font-size:12px;color:#80868b\">Status</th><th style=\"$cell;text-align:right;font-size:12px;color:#80868b\">$(L Reboot Neustart)</th></tr>"
     cur=""
@@ -1670,6 +1688,7 @@ cmd_run(){
     process_host "$node"
   done
 
+  update_check
   build_report
   ev report subject="$REPORT_SUBJECT" problems="$PROBLEMS" changes="$CHANGES" fails="$FAILS"
   cat "$REPORT_TXT" >> "$LOGF"
@@ -1681,10 +1700,13 @@ cmd_run(){
   else
     cat "$REPORT_TXT"
   fi
-  if { [ "$MODE" = live ] && should_mail "$PROBLEMS" "$CHANGES"; } || { [ "$MODE" = dryrun ] && [ "$mailtest" = 1 ]; }; then
+  # a new program version is mailed once, even when NOTIFY=errors would stay quiet (never stays never)
+  local updmail=0
+  if [ "$MODE" = live ] && [ "$NOTIFY" != never ] && upd_available && [ "$(cat "$UPD_NOTIFIED" 2>/dev/null)" != "$(upd_get latest)" ]; then updmail=1; fi
+  if { [ "$MODE" = live ] && { should_mail "$PROBLEMS" "$CHANGES" || [ "$updmail" = 1 ]; }; } || { [ "$MODE" = dryrun ] && [ "$mailtest" = 1 ]; }; then
     msg_info "$(L "Sending mail" "Mail wird verschickt") ..."
     if send_mail "$REPORT_SUBJECT" "$REPORT_TXT" "$REPORT_HTML"; then
-      log "mail sent: $REPORT_SUBJECT"; [ "$INTERACTIVE" = 1 ] && msg_ok "$(L "Mail sent to" "Mail verschickt an") $MAIL_TO"
+      log "mail sent: $REPORT_SUBJECT"; [ "$MODE" = live ] && upd_available && upd_get latest > "$UPD_NOTIFIED"; [ "$INTERACTIVE" = 1 ] && msg_ok "$(L "Mail sent to" "Mail verschickt an") $MAIL_TO"
     else
       log "WARNING: sending mail failed"; [ "$INTERACTIVE" = 1 ] && msg_error "$(L "Sending mail failed" "Mailversand fehlgeschlagen")"
     fi
@@ -1955,7 +1977,7 @@ cmd_self_update(){
 # Only looks: fetches the newest script from GitHub, compares it with this copy and
 # remembers the result for UPD_MAX_AGE. Installing stays a decision of the user
 # (self-update in the terminal, or the button in the web UI).
-UPD_FILE="$STATE/update-check"; UPD_NOTES="$STATE/update-notes"; UPD_MAX_AGE=43200
+UPD_FILE="$STATE/update-check"; UPD_NOTES="$STATE/update-notes"; UPD_NOTIFIED="$STATE/update-notified"; UPD_MAX_AGE=43200
 upd_get(){ sed -n "s/^$1=//p" "$UPD_FILE" 2>/dev/null | head -n 1; }
 bin_sha(){ sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1; }
 ver_gt(){ [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]; }
