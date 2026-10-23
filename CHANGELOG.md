@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0 - 2026-10-23
+
+- Program updates: `pve-autoupdate update-check` looks for a new version on GitHub (at most every 12 hours, installs nothing); hint in the menu and in `status`
+- Web UI: banner when a new version is available, with "What's new" from this changelog, and an update button (Sys.Modify); "Program updates" section under Settings
+- Web UI is optional: the setup wizard asks (step 6/6); without it everything runs in the terminal
+- Web UI: settings page for the mail notification with test mail; new logo
+- Installer: new banner and welcome page, clear box with the web UI address at the end, the mail address may stay empty
+- Fixed: `ui-install` failed right after the wizard (umask); the one-liner failed with "Argument list too long" (now `bash <(curl ...)`)
+- Removed the "review script content" question before installing
+
 ## 2.0.0 - 2026-10-21
 
 - Helper-script style: one-line install, menu, spinner output, self-update with diff and SHA256
