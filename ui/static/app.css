@@ -230,3 +230,21 @@ footer .heart { color: var(--amber); }
 .setmsg.bad { background: rgba(229,83,75,.12); border: 1px solid rgba(229,83,75,.4); color: #f3a29c; }
 .setmsg pre.log { margin: 8px 0 0; max-height: 160px; overflow: auto; }
 .field input:disabled, .field select:disabled { opacity: .55; cursor: not-allowed; }
+/* logo */
+.logo img { width: auto; height: 34px; }
+.login .biglogo { display: block; width: 210px; max-width: 72%; margin: 0 auto 16px; }
+.login .brand { justify-content: center; text-align: center; }
+
+/* program updates */
+.banner.upd { border-color: rgba(242,169,59,.6); background: rgba(242,169,59,.08); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.banner.upd .txt { min-width: 0; }
+.banner.upd details { margin-top: 6px; color: var(--muted); }
+.banner.upd summary { cursor: pointer; color: var(--amber); }
+.banner.upd ul { margin: 6px 0 0; padding-left: 18px; }
+.kvs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.kvs span { display: block; font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) { .kvs { grid-template-columns: 1fr; } }
+.setcard .updstate { margin: 6px 0 12px; }
+.updstate .warn { color: #ecd28f; }
+.amber { color: var(--amber); }
+.setcard .small { font-size: 12px; margin: 12px 0 0; }

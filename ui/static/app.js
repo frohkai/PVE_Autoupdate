@@ -10,6 +10,13 @@ const hasDonate = () => DONATE_URL.startsWith("http") && !DONATE_URL.includes("_
 // ------------------------------------------------------------------ texts
 const TXT = {
   en: {
+    upd_title: "New version {v} available", upd_installed: "installed: {v}", upd_whatsnew: "What's new", upd_now: "Update now",
+    upd_check: "Check now", upd_section: "Program updates", upd_installed_l: "Installed version", upd_latest_l: "Newest version",
+    upd_checked_l: "Last check", upd_none: "not checked yet", upd_uptodate: "Up to date.", upd_checking: "Checking GitHub ...",
+    upd_unreach: "GitHub is not reachable - no check possible (private repository or no internet).",
+    upd_confirm_t: "Install the update?", upd_confirm_p: "pve-autoupdate {v} is downloaded from GitHub and installed on the node. The web UI restarts during the update and this page reloads by itself afterwards - you may have to sign in again.",
+    upd_running: "The update is running - this page reloads by itself in a moment ...", upd_failed: "The update could not be started",
+    upd_hint_cli: "In the terminal: pve-autoupdate update-check / pve-autoupdate self-update. GitHub is asked at most every 12 hours; nothing is installed without you.",
     settings: "Settings", set_mail: "Notification by e-mail", set_mail_sub: "Get a report by mail after the updates ran.",
     set_notify: "When to send a mail", n_never: "Never", n_errors: "Only when something went wrong", n_changes: "On problems and when something was updated", n_always: "After every run",
     set_to: "Recipient", set_to_ph: "name@example.com (several separated by commas)",
@@ -59,6 +66,13 @@ const TXT = {
     os_windows: "Windows", os_linux: "Linux",
   },
   de: {
+    upd_title: "Neue Version {v} verfügbar", upd_installed: "installiert: {v}", upd_whatsnew: "Neu in dieser Version", upd_now: "Jetzt aktualisieren",
+    upd_check: "Jetzt prüfen", upd_section: "Programm-Updates", upd_installed_l: "Installierte Version", upd_latest_l: "Neueste Version",
+    upd_checked_l: "Letzte Prüfung", upd_none: "noch nicht geprüft", upd_uptodate: "Aktuell.", upd_checking: "Frage GitHub ...",
+    upd_unreach: "GitHub nicht erreichbar - keine Prüfung möglich (privates Repository oder kein Internet).",
+    upd_confirm_t: "Update installieren?", upd_confirm_p: "pve-autoupdate {v} wird von GitHub geladen und auf dem Node installiert. Die Weboberfläche startet dabei neu, diese Seite lädt danach von selbst neu - eventuell musst du dich neu anmelden.",
+    upd_running: "Das Update läuft - diese Seite lädt gleich von selbst neu ...", upd_failed: "Das Update konnte nicht gestartet werden",
+    upd_hint_cli: "Im Terminal: pve-autoupdate update-check / pve-autoupdate self-update. GitHub wird höchstens alle 12 Stunden gefragt, installiert wird nichts ohne dich.",
     settings: "Einstellungen", set_mail: "Benachrichtigung per Mail", set_mail_sub: "Einen Bericht per Mail bekommen, nachdem die Updates gelaufen sind.",
     set_notify: "Wann soll eine Mail kommen", n_never: "Nie", n_errors: "Nur wenn etwas schiefgelaufen ist", n_changes: "Bei Problemen und wenn etwas aktualisiert wurde", n_always: "Nach jedem Lauf",
     set_to: "Empfänger", set_to_ph: "name@example.com (mehrere mit Komma trennen)",
@@ -225,7 +239,7 @@ function renderLogin() {
       <button class="btn primary" ${S.busy ? "disabled" : ""}>${S.busy ? '<span class="spin"></span>' : ""}${t("sign_in")}</button></form>`;
   }
   return `<div class="login"><div class="card">
-    <div class="brand"><img src="logo.svg" alt=""><div><div class="kicker">&gt;_ pve-autoupdate</div><h1>${t("login_title")}</h1>
+    <img class="biglogo" src="logo.svg" alt="PVE Autoupdate"><div class="brand"><div><div class="kicker">&gt;_ pve-autoupdate</div><h1>${t("login_title")}</h1>
       <div class="muted">${t("login_sub")}${S.node ? " · " + esc(S.node) : ""}</div></div></div>
     ${form}
     <div class="foot"><span>by ${esc(AUTHOR)} · <a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a></span>${langSwitch()}</div>
@@ -261,14 +275,14 @@ function renderApp() {
   else if (S.tab === "settings") body = renderSettings();
   else body = renderLog();
   return `<header class="top"><div class="in">
-      <div class="logo"><img src="logo.svg" alt=""><div><b><i>&gt;_</i> pve-autoupdate</b><small>by ${esc(AUTHOR)}</small></div></div>
+      <div class="logo"><img src="emblem.svg" alt=""><div><b><i>&gt;_</i> pve-autoupdate</b><small>by ${esc(AUTHOR)}</small></div></div>
       <nav class="tabs">${tab("overview")}${tab("history")}${tab("settings")}${tab("log")}</nav>
       <div class="right"><span class="chip"><b>${esc(where)}</b></span>
         <span class="chip user">${esc(S.session.user)}${canWrite() ? "" : " · " + t("read_only")}</span>
         ${langSwitch()}<button class="btn sm ghost" data-act="logout">${t("logout")}</button></div>
     </div></header>
     <main>${S.invErr ? `<div class="banner err">${t("node_down")}: ${esc(S.invErr)}</div>` : ""}
-      ${canWrite() ? "" : `<div class="banner ro">${t("ro_banner")}</div>`}${mailHint()}${body}</main>
+      ${canWrite() ? "" : `<div class="banner ro">${t("ro_banner")}</div>`}${updBanner()}${mailHint()}${body}</main>
     <footer><span>pve-autoupdate ${esc(inv ? inv.version : "")} · UI ${esc(S.session.version)}</span>
       <span>by ${esc(AUTHOR)} · <a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a></span>
       <a href="${REPO_URL}" target="_blank" rel="noopener">GitHub</a>
@@ -509,7 +523,8 @@ function renderSettings() {
       ${msg}
       <div class="setbt"><button type="button" class="btn primary" data-act="savemail" ${dis}>${S.busy ? '<span class="spin"></span>' : ""}${t("set_save")}</button>
         ${on ? `<button type="button" class="btn" data-act="savemailtest" ${dis}>${t("set_save_test")}</button>` : ""}</div>
-    </form>`;
+    </form>
+    ${renderUpd()}`;
 }
 async function saveMail(test) {
   const f = S.form;
@@ -543,6 +558,69 @@ async function saveMail(test) {
     }
   } catch (e) { if (e.message !== "login") msg = { ok: false, text: t("set_err") }; }
   S.busy = false; S.setMsg = msg; render();
+}
+
+// ------------------------------------------------------------------ program updates
+function updBanner() {
+  const inv = S.inv;
+  if (S.updating) return `<div class="banner upd"><span><span class="spin"></span> ${t("upd_running")}</span></div>`;
+  if (!inv || !inv.update_available || S.tab !== "overview") return "";
+  const notes = (inv.update_notes || []).map(l => `<li>${esc(l.replace(/^\s*[-*]\s*/, ""))}</li>`).join("");
+  return `<div class="banner upd"><div class="txt"><b>${esc(t("upd_title", { v: inv.latest_version }))}</b>
+      <span class="muted">${esc(t("upd_installed", { v: inv.version }))}</span>
+      ${notes ? `<details><summary>${t("upd_whatsnew")}</summary><ul>${notes}</ul></details>` : ""}</div>
+    ${canWrite() ? `<button class="btn sm primary" data-act="selfupdate">${t("upd_now")}</button>` : ""}</div>`;
+}
+function renderUpd() {
+  const inv = S.inv, w = canWrite(), busy = S.upd && S.upd.busy;
+  const ts = +inv.update_checked;
+  const checked = ts ? `${fmt(ts)} · ${ago(ts)}` : t("upd_none");
+  let state = "";
+  if (busy) state = `<span class="spin"></span> ${t("upd_checking")}`;
+  else if (inv.update_available) state = `<b class="amber">${esc(t("upd_title", { v: inv.latest_version }))}</b>`;
+  else if (inv.update_error) state = `<span class="warn">${t("upd_unreach")}</span>`;
+  else if (ts) state = t("upd_uptodate");
+  return `<h2>${t("upd_section")}</h2><div class="setcard">
+    <div class="kvs"><div><span>${t("upd_installed_l")}</span><b>${esc(inv.version)}</b></div>
+      <div><span>${t("upd_latest_l")}</span><b>${esc(inv.latest_version || "-")}</b></div>
+      <div><span>${t("upd_checked_l")}</span><b>${esc(checked)}</b></div></div>
+    ${state ? `<p class="updstate">${state}</p>` : ""}
+    <div class="setbt"><button type="button" class="btn" data-act="updcheck" ${busy || S.updating ? "disabled" : ""}>${t("upd_check")}</button>
+      ${w && inv.update_available ? `<button type="button" class="btn primary" data-act="selfupdate" ${S.updating ? "disabled" : ""}>${t("upd_now")}</button>` : ""}</div>
+    <p class="muted small">${t("upd_hint_cli")}</p></div>`;
+}
+async function updCheck() {
+  S.upd = { busy: true }; render();
+  try { await api("/api/update-check", { body: { force: true } }); await loadInventory(); } catch (e) { /* login */ }
+  S.upd = null; render();
+}
+function openSelfUpdate() {
+  const inv = S.inv, m = $("#modal");
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true"><h3>${t("upd_confirm_t")}</h3>
+    <p>${esc(t("upd_confirm_p", { v: inv.latest_version }))}</p>
+    <div class="bt"><button class="btn" data-act="mclose">${t("cancel")}</button><button class="btn primary" id="m-upd">${t("upd_now")}</button></div></div>`;
+  m.classList.remove("hidden");
+  $("#m-upd").addEventListener("click", async () => {
+    $("#m-upd").disabled = true;
+    let r = null;
+    try { r = await api("/api/update-start", { body: {} }); } catch (e) { /* login */ }
+    closeModal();
+    if (!r || !r.ok) { alert(t("upd_failed") + ": " + ((r && r.data && (r.data.error || r.data.detail)) || (r && r.status) || "")); return; }
+    S.updating = { from: inv.version, t0: Date.now() }; render(); waitForUpdate();
+  });
+}
+function waitForUpdate() {   // the web UI restarts during the update - wait for the new version, then reload
+  clearInterval(pollInv);
+  const tick = async () => {
+    if (Date.now() - S.updating.t0 > 300000) { location.reload(); return; }
+    try {
+      const r = await fetch("/api/inventory", { credentials: "same-origin" });
+      if (r.status === 401) { location.reload(); return; }
+      if (r.ok) { const d = await r.json(); if (d.version && d.version !== S.updating.from) { location.reload(); return; } }
+    } catch (e) { /* web UI is restarting */ }
+    setTimeout(tick, 3000);
+  };
+  setTimeout(tick, 5000);
 }
 
 // ------------------------------------------------------------------ polling
@@ -641,6 +719,8 @@ document.addEventListener("click", async ev => {
   else if (a === "reloadlog") loadLog();
   else if (a === "savemail") saveMail(false);
   else if (a === "savemailtest") saveMail(true);
+  else if (a === "updcheck") updCheck();
+  else if (a === "selfupdate") openSelfUpdate();
 });
 document.addEventListener("input", ev => {
   const k = ev.target.dataset && ev.target.dataset.f;
