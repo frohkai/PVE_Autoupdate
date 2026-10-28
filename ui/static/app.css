@@ -395,7 +395,8 @@ footer .ic { width: 13px; height: 13px; color: var(--amber); }
   .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary > div:nth-child(3) { border-left: 0; }
   .summary > div:nth-child(n+3) { border-top: 1px solid var(--line-soft); }
-  .nodes .node { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: var(--s2); }
+  .nodes .node { grid-template-columns: minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1fr); row-gap: var(--s3); }
+  .tbl .rc small { display: none; }
   .nodes .node .bt { grid-column: 1 / -1; justify-content: flex-start; }
   .run .body { grid-template-columns: 1fr; }
   .run .results { border-right: 0; border-bottom: 1px solid var(--line-soft); }
