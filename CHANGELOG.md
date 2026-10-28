@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Web UI reworked: one consistent stylesheet (tokens for colors, spacing, radius), compact status panel instead of four stat cards, nodes as a list, quieter tabs with an underline
+- Web UI: drawn SVG icons instead of unicode symbols, readable status labels ("Rolled back", "Checked" instead of ROLLBACK/TEST), mail subjects shown without emoji and prefixes
+- Web UI: notices instead of `alert()` popups, loading placeholders, an explained empty history, visible keyboard focus, history rows open with Enter
+- Web UI: works on phones (status panel, node list and guest table rearrange, the guest ID moves next to the name)
+- Fixed: pressing Enter in the mail settings reloaded the page; history showed "selection" for runs that covered all automatic guests
+
 ## 2.1.0 - 2026-10-23
 
 - Program updates: `pve-autoupdate update-check` looks for a new version on GitHub (at most every 12 hours, installs nothing); hint in the menu and in `status`
