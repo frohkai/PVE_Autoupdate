@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- New web UI design: top navigation with its own page (and URL) for Dashboard, Containers & VMs, History, Log and Settings; back/forward and bookmarks work
+- Dashboard: four stat cards with the last 14 days as daily bars (updated systems, problems, runs) and a meter for pending updates; status panel, node list with an action menu, "Needs attention" and recent runs
+- Light, dark or system theme (footer, login page and Settings → Appearance), remembered in the browser
+- Account menu in the header (user, rights, sign out); footer with links, version, theme and language
+- Run details show duration and nodes; history rows, attention items and recent runs link straight to the run
 - Web UI reworked: one consistent stylesheet (tokens for colors, spacing, radius), compact status panel instead of four stat cards, nodes as a list, quieter tabs with an underline
 - Web UI: drawn SVG icons instead of unicode symbols, readable status labels ("Rolled back", "Checked" instead of ROLLBACK/TEST), mail subjects shown without emoji and prefixes
 - Web UI: notices instead of `alert()` popups, loading placeholders, an explained empty history, visible keyboard focus, history rows open with Enter
