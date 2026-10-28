@@ -2,12 +2,14 @@
 
 ## Unreleased
 
-- New web UI design: top navigation with its own page (and URL) for Dashboard, Containers & VMs, History, Log and Settings; back/forward and bookmarks work
-- Dashboard: four stat cards with the last 14 days as daily bars (updated systems, problems, runs) and a meter for pending updates; status panel, node list with an action menu, "Needs attention" and recent runs
-- Light, dark or system theme (footer, login page and Settings → Appearance), remembered in the browser
-- Account menu in the header (user, rights, sign out); footer with links, version, theme and language
+- New web UI design: an app layout with a fixed sidebar (Dashboard, Containers & VMs, History, Settings), each page with its own URL; back/forward and bookmarks work. On phones a top bar and a tab bar at the bottom
+- Dashboard shows only the state: four stat cards with the last 14 days as daily bars (updated systems, problems, runs) and a meter for pending updates, system status as a ring (up to date / updates available / problem / not checked), nodes with an action menu and the recent runs
+- Settings collect everything else: schedule and time window, mail notification, program updates, appearance and an "About" card with version and links
+- Removed the log page from the web UI (the log stays on the node)
+- Light, dark or system theme (login page and Settings → Appearance), remembered in the browser
+- Account menu in the sidebar (user, rights, sign out), status and next run below the navigation
 - Run details show duration and nodes; history rows, attention items and recent runs link straight to the run
-- Web UI reworked: one consistent stylesheet (tokens for colors, spacing, radius), compact status panel instead of four stat cards, nodes as a list, quieter tabs with an underline
+- Web UI reworked: one consistent stylesheet (tokens for colors, spacing, radius), nodes as a list
 - Web UI: drawn SVG icons instead of unicode symbols, readable status labels ("Rolled back", "Checked" instead of ROLLBACK/TEST), mail subjects shown without emoji and prefixes
 - Web UI: notices instead of `alert()` popups, loading placeholders, an explained empty history, visible keyboard focus, history rows open with Enter
 - Web UI: works on phones (status panel, node list and guest table rearrange, the guest ID moves next to the name)

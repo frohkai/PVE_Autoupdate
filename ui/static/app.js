@@ -34,7 +34,7 @@ const TXT = {
     verify: "Verify", bad_login: "Login failed - check user name, password and realm.", bad_code: "The code is not valid.",
     no_permission: "This account may not see the nodes (Sys.Audit needed).", too_many_attempts: "Too many failed attempts - please wait a few minutes.",
     expired: "That took too long - please sign in again.", node_down: "The Proxmox node does not answer",
-    overview: "Overview", history: "History", log: "Log", logout: "Sign out", read_only: "read only",
+    overview: "Overview", history: "History", logout: "Sign out", read_only: "read only",
     ro_banner: "Your account can view, but not start updates (Sys.Modify needed).",
     schedule: "Schedule", next_run: "Next run", last_run: "Last run", state: "Status",
     window_open: "update window open", window_closed: "outside the update window", no_window: "no time window",
@@ -60,25 +60,26 @@ const TXT = {
     k_update: "Update", k_check: "Check", by_ui: "web UI", by_cli: "schedule / console", all_selected: "all automatic",
     no_history: "No runs yet.", no_history_p: "Runs show up here once the schedule has run or you start a check on the overview.", go_overview: "Go to overview",
     back: "Back", results: "Results", events: "Log of this run", refresh: "Refresh", no_results: "No results in this run.",
-    log_title: "Log on the node", log_empty: "The log is empty.", pkgs: "{n} pkg", post: "Post check",
+    pkgs: "{n} pkg", post: "Post check",
     s_running: "Running", s_ok: "OK", s_fail: "Errors", s_aborted: "Aborted", s_rebooting: "Rebooting", s_window: "Outside window", s_problems: "With problems",
     b_OK: "OK", b_WARN: "Warning", b_FAIL: "Failed", b_ROLLBACK: "Rolled back", b_SKIP: "Skipped", b_TEST: "Checked", b_RUN: "Running",
     ago_s: "just now", ago_m: "{n} min ago", ago_h: "{n} h ago", ago_d: "{n} d ago", in_x: "in {x}",
     up_to_date: "up to date", reboot_needed: "reboot needed",
     os_windows: "Windows", os_linux: "Linux", main_nav: "Main", language: "Language",
-    dashboard: "Dashboard", sub_overview: "{w} · {n} nodes · {g} containers & VMs", sub_guests: "{n} systems · {a} automatic",
-    sub_history: "The last {n} runs", sub_log: "The last 400 lines of the pve-autoupdate log", sub_settings: "Notifications, program updates and appearance",
-    st_avail: "Updates available", st_avail_s: "packages on {a} of {b} systems", st_avail_none: "every system is up to date", per_check: "last check",
+    dashboard: "Dashboard", sub_guests: "{n} systems · {a} automatic",
+    sub_history: "The last {n} runs", sub_settings: "Schedule, notifications, program updates and appearance",
+    st_avail: "Updates available", per_check: "last check",
     st_updated: "Updated", st_updated_s: "systems updated", st_problems: "Problems", st_problems_s: "rollbacks and errors",
-    st_runs: "Runs", st_runs_s: "{u} updates · {c} checks", days14: "14 days", m_uptodate: "{n} up to date", m_pending: "{n} with updates",
-    sys_status: "Status", auto_on: "Automatic updates are on", auto_off: "No schedule - updates only run when started here",
-    window_l: "Update window", open_w: "open now", closed_w: "closed now", notify_l: "Mail report", next_short: "next run",
-    nshort_never: "Off", nshort_errors: "Only on problems", nshort_changes: "On problems and updates", nshort_always: "After every run",
-    attention: "Needs attention", all_good: "All good", all_good_p: "The last updates and checks ran without problems.",
+    st_runs: "Runs", days14: "14 days", m_uptodate: "{n} up to date", m_pending: "{n} with updates",
+    sys_status: "System status",
+    window_l: "Update window", open_w: "open now", closed_w: "closed now",
     recent_runs: "Recent runs", all_runs: "Show all runs", more_actions: "More actions", account: "Account", full_access: "Full access",
     clear_sel: "Clear selection", report_issue: "Report a problem", donate: "Donate", pending_n: "{n} pending",
     duration: "Duration", theme: "Theme", th_auto: "System", th_light: "Light", th_dark: "Dark", appearance: "Appearance",
     theme_sub: "System follows the setting of your device.", lang_sub: "Remembered in this browser.", id_on: "ID {id} · {node}",
+    next_x: "Next run {x}", no_schedule: "No schedule", systems: "systems",
+    hs_ok: "Up to date", hs_pend: "Updates available", hs_bad: "Problem at last run", hs_none: "Not checked yet",
+    sched_hint: "Schedule and time window are set on the node: pve-autoupdate setup", about: "About", ui_version: "Web UI", author: "Author",
   },
   de: {
     upd_title: "Neue Version {v} verfügbar", upd_installed: "installiert: {v}", upd_whatsnew: "Neu in dieser Version", upd_now: "Jetzt aktualisieren",
@@ -105,7 +106,7 @@ const TXT = {
     verify: "Bestätigen", bad_login: "Anmeldung fehlgeschlagen - Benutzername, Passwort und Realm prüfen.", bad_code: "Der Code ist nicht gültig.",
     no_permission: "Dieses Konto darf die Nodes nicht sehen (Sys.Audit nötig).", too_many_attempts: "Zu viele Fehlversuche - bitte ein paar Minuten warten.",
     expired: "Das hat zu lange gedauert - bitte neu anmelden.", node_down: "Der Proxmox-Node antwortet nicht",
-    overview: "Übersicht", history: "Verlauf", log: "Protokoll", logout: "Abmelden", read_only: "nur lesen",
+    overview: "Übersicht", history: "Verlauf", logout: "Abmelden", read_only: "nur lesen",
     ro_banner: "Dein Konto darf alles sehen, aber keine Updates starten (Sys.Modify nötig).",
     schedule: "Zeitplan", next_run: "Nächster Lauf", last_run: "Letzter Lauf", state: "Status",
     window_open: "Zeitfenster offen", window_closed: "außerhalb des Zeitfensters", no_window: "kein Zeitfenster",
@@ -131,30 +132,31 @@ const TXT = {
     k_update: "Update", k_check: "Prüfung", by_ui: "Weboberfläche", by_cli: "Zeitplan / Konsole", all_selected: "alle automatischen",
     no_history: "Noch keine Läufe.", no_history_p: "Läufe erscheinen hier, sobald der Zeitplan gelaufen ist oder du auf der Übersicht eine Prüfung startest.", go_overview: "Zur Übersicht",
     back: "Zurück", results: "Ergebnisse", events: "Protokoll dieses Laufs", refresh: "Aktualisieren", no_results: "Keine Ergebnisse in diesem Lauf.",
-    log_title: "Protokoll auf dem Node", log_empty: "Das Protokoll ist leer.", pkgs: "{n} Pak.", post: "Nachkontrolle",
+    pkgs: "{n} Pak.", post: "Nachkontrolle",
     s_running: "Läuft", s_ok: "OK", s_fail: "Fehler", s_aborted: "Abgebrochen", s_rebooting: "Neustart", s_window: "Außerhalb Zeitfenster", s_problems: "Mit Problemen",
     b_OK: "OK", b_WARN: "Warnung", b_FAIL: "Fehler", b_ROLLBACK: "Zurückgesetzt", b_SKIP: "Übersprungen", b_TEST: "Geprüft", b_RUN: "Läuft",
     ago_s: "gerade eben", ago_m: "vor {n} Min.", ago_h: "vor {n} Std.", ago_d: "vor {n} Tg.", in_x: "in {x}",
     up_to_date: "aktuell", reboot_needed: "Neustart nötig",
     os_windows: "Windows", os_linux: "Linux", main_nav: "Hauptmenü", language: "Sprache",
-    dashboard: "Übersicht", sub_overview: "{w} · {n} Nodes · {g} Container & VMs", sub_guests: "{n} Systeme · {a} automatisch",
-    sub_history: "Die letzten {n} Läufe", sub_log: "Die letzten 400 Zeilen des pve-autoupdate-Protokolls", sub_settings: "Benachrichtigungen, Programm-Updates und Darstellung",
-    st_avail: "Updates verfügbar", st_avail_s: "Pakete auf {a} von {b} Systemen", st_avail_none: "alle Systeme sind aktuell", per_check: "letzte Prüfung",
+    dashboard: "Übersicht", sub_guests: "{n} Systeme · {a} automatisch",
+    sub_history: "Die letzten {n} Läufe", sub_settings: "Zeitplan, Benachrichtigungen, Programm-Updates und Darstellung",
+    st_avail: "Updates verfügbar", per_check: "letzte Prüfung",
     st_updated: "Aktualisiert", st_updated_s: "Systeme aktualisiert", st_problems: "Probleme", st_problems_s: "Rollbacks und Fehler",
-    st_runs: "Läufe", st_runs_s: "{u} Updates · {c} Prüfungen", days14: "14 Tage", m_uptodate: "{n} aktuell", m_pending: "{n} mit Updates",
-    sys_status: "Status", auto_on: "Automatische Updates sind aktiv", auto_off: "Kein Zeitplan - Updates laufen nur, wenn du sie hier startest",
-    window_l: "Update-Zeitfenster", open_w: "gerade offen", closed_w: "gerade geschlossen", notify_l: "Mail-Bericht", next_short: "nächster Lauf",
-    nshort_never: "Aus", nshort_errors: "Nur bei Problemen", nshort_changes: "Bei Problemen und Updates", nshort_always: "Nach jedem Lauf",
-    attention: "Braucht Aufmerksamkeit", all_good: "Alles in Ordnung", all_good_p: "Die letzten Updates und Prüfungen liefen ohne Probleme.",
+    st_runs: "Läufe", days14: "14 Tage", m_uptodate: "{n} aktuell", m_pending: "{n} mit Updates",
+    sys_status: "Systemstatus",
+    window_l: "Update-Zeitfenster", open_w: "gerade offen", closed_w: "gerade geschlossen",
     recent_runs: "Letzte Läufe", all_runs: "Alle Läufe anzeigen", more_actions: "Weitere Aktionen", account: "Konto", full_access: "Vollzugriff",
     clear_sel: "Auswahl aufheben", report_issue: "Problem melden", donate: "Spenden", pending_n: "{n} offen",
     duration: "Dauer", theme: "Design", th_auto: "System", th_light: "Hell", th_dark: "Dunkel", appearance: "Darstellung",
     theme_sub: "System folgt der Einstellung deines Geräts.", lang_sub: "Wird in diesem Browser gespeichert.", id_on: "ID {id} · {node}",
+    next_x: "Nächster Lauf {x}", no_schedule: "Kein Zeitplan", systems: "Systeme",
+    hs_ok: "Aktuell", hs_pend: "Updates verfügbar", hs_bad: "Problem beim letzten Lauf", hs_none: "Noch nicht geprüft",
+    sched_hint: "Zeitplan und Zeitfenster werden auf dem Node eingestellt: pve-autoupdate setup", about: "Info", ui_version: "Weboberfläche", author: "Autor",
   },
 };
 
 // ------------------------------------------------------------------ state
-const TABS = ["overview", "guests", "history", "log", "settings"];
+const TABS = ["overview", "guests", "history", "settings"];
 const S = {
   lang: loadPref("lang") || ((navigator.language || "en").slice(0, 2) === "de" ? "de" : "en"),
   theme: loadPref("theme") || "auto",
@@ -163,7 +165,7 @@ const S = {
   run: null,            // {id, from, events, done, mode}
   detail: null,         // {id, events, loading}
   menu: null,           // open dropdown: "acct" or "node:<name>"
-  logText: null, loginErr: "", tfa: null, busy: false,
+  loginErr: "", tfa: null, busy: false,
 };
 let pollRun = null, pollInv = null;
 
@@ -198,9 +200,7 @@ const ICONS = {
   lock: "M7.5 11V8a4.5 4.5 0 0 1 9 0v3M5.5 11h13v9.5h-13z",
   grid: "M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z",
   box: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9",
-  server: "M4 4.5h16v6H4zM4 13.5h16v6H4zM8 7.5h.01M8 16.5h.01",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5V12l3 2",
-  term: "M3.5 5h17v14h-17zM7.5 10l3 2.5-3 2.5M13 15h4",
   sliders: "M4 7h10M18 7h2M4 17h2M10 17h10M16 5v4M8 15v4",
   sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M5.6 18.4l1.1-1.1M17.3 6.7l1.1-1.1",
   moon: "M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10z",
@@ -386,53 +386,51 @@ async function doLogin(body) {
   S.busy = false; render();
 }
 
-// ------------------------------------------------------------------ app shell
+// ------------------------------------------------------------------ app shell: sidebar (phone: top bar + tab bar)
 function wherePlace() {
   const inv = S.inv;
   return inv ? (inv.cluster ? "Cluster " + inv.cluster : "Node " + inv.self) : (S.session.node || "");
 }
-function statePill() {
-  if (!S.inv) return "";
-  if (isRunning()) return `<span class="pill"><span class="spin"></span>${t("running")}</span>`;
-  if (S.inv.reboot_pending) return `<span class="pill"><span class="dot wait"></span>${t("s_rebooting")}</span>`;
-  const nr = nextRunTxt(S.inv.next_run);
-  return `<span class="pill"><span class="dot on"></span>${t("idle")}${nr.s ? ` <span class="muted">· ${t("next_short")} ${esc(nr.s)}</span>` : ""}</span>`;
+function sideStatus() {
+  const inv = S.inv;
+  if (!inv) return "";
+  let h;
+  if (isRunning()) h = `<div class="sstat"><span class="spin"></span><div>${t("running")}</div></div>`;
+  else if (inv.reboot_pending) h = `<div class="sstat"><span class="dot wait"></span><div>${t("s_rebooting")}</div></div>`;
+  else {
+    const nr = nextRunTxt(inv.next_run);
+    h = `<div class="sstat"><span class="dot on"></span><div>${t("idle")}<small>${nr.none ? t("no_schedule") : esc(t("next_x", { x: nr.s || nr.v }))}</small></div></div>`;
+  }
+  if (inv.update_available) h = `<a class="supd" href="#/settings">${icon("up")}${esc(t("upd_title", { v: inv.latest_version }))}</a>` + h;
+  return h;
 }
-function accountMenu() {
-  const open = S.menu === "acct";
-  return `<div class="mwrap"><button class="btn ghost acct" data-act="menu" data-v="acct" aria-haspopup="menu" aria-expanded="${open}" aria-label="${t("account")}">
-      ${icon("user")}<span class="u">${esc(S.session.user)}</span>${icon("down")}</button>
-    ${open ? `<div class="menu" role="menu"><div class="mhead"><b>${esc(S.session.user)}</b><span>${esc(wherePlace())}</span>
+function accountMenu(key) {
+  const open = S.menu === key, u = S.session.user || "";
+  return `<div class="mwrap"><button class="acct" data-act="menu" data-v="${key}" aria-haspopup="menu" aria-expanded="${open}" aria-label="${t("account")}">
+      <span class="avatar" aria-hidden="true">${esc(u.charAt(0))}</span>
+      <span class="who"><b>${esc(u)}</b><small>${canWrite() ? t("full_access") : t("read_only")}</small></span>${icon("down")}</button>
+    ${open ? `<div class="menu" role="menu"><div class="mhead"><b>${esc(u)}</b><span>${esc(wherePlace())}</span>
         <span>${canWrite() ? `${icon("check")}${t("full_access")}` : `${icon("lock")}${t("read_only")}`}</span></div>
       <button role="menuitem" data-act="logout">${icon("logout")}${t("logout")}</button></div>` : ""}</div>`;
 }
 function renderApp() {
-  const nav = (k, ic, label) => `<a href="#/${k}" class="${S.tab === k ? "on" : ""}" ${S.tab === k ? 'aria-current="page"' : ""}>${icon(ic)}${label}</a>`;
+  const nav = (k, ic, label) => `<a href="#/${k}" class="${S.tab === k ? "on" : ""}" ${S.tab === k ? 'aria-current="page"' : ""}>${icon(ic)}<span>${label}</span></a>`;
   let body = "";
   if (S.tab === "overview") body = renderOverview();
   else if (S.tab === "guests") body = renderGuestsPage();
   else if (S.tab === "history") body = S.detail ? renderDetail() : renderHistory();
-  else if (S.tab === "settings") body = renderSettings();
-  else body = renderLog();
-  const inv = S.inv;
-  return `<header class="top"><div class="in">
-      <a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><b>pve-autoupdate</b></a>
-      <nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "box", t("guests"))}${nav("history", "clock", t("history"))}${nav("log", "term", t("log"))}${nav("settings", "sliders", t("settings"))}</nav>
-      <div class="right">${statePill()}${accountMenu()}</div>
-    </div></header>
-    <main>${body}</main>
-    <footer><div class="in">
-      <div class="links"><a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a>
-        <a href="${REPO_URL}" target="_blank" rel="noopener">GitHub</a>
-        <a href="${REPO_URL}/issues" target="_blank" rel="noopener">${t("report_issue")}</a>
-        ${hasDonate() ? `<a href="${DONATE_URL}" target="_blank" rel="noopener">${icon("heart")}${t("donate")}</a>` : ""}</div>
-      <span class="ver">pve-autoupdate ${esc(inv ? inv.version : "")} · UI ${esc(S.session.version)} · by ${esc(AUTHOR)}</span>
-      <div class="ctl">${themeSwitch()}${langSelect()}</div>
-    </div></footer>`;
+  else body = renderSettings();
+  const brand = `<a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><span><b>PVE Autoupdate</b><small>${esc(wherePlace())}</small></span></a>`;
+  return `<aside class="sidebar">${brand}
+      <nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "box", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
+      <div class="side-foot">${sideStatus()}${accountMenu("acct")}</div>
+    </aside>
+    <header class="mtop">${brand}${accountMenu("acct-m")}</header>
+    <main><div class="page">${body}</div></main>`;
 }
 function topNotes() {   // problems that matter on every operational page
   let h = S.invErr ? note("err", "alert", `<b>${t("node_down")}</b> · ${esc(S.invErr)}`) : "";
-  if (!canWrite() && (S.tab === "overview" || S.tab === "guests")) h += note("", "lock", t("ro_banner"));
+  if (!canWrite() && S.tab === "guests") h += note("", "lock", t("ro_banner"));
   return h;
 }
 function bulkActions() {
@@ -481,54 +479,54 @@ function spark(vals, start, label) {
   }).join("");
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}, ${t("days14")}">${bars}</svg>`;
 }
-function statCard(cls, label, per, value, sub, viz) {
+function statCard(cls, label, per, value, viz) {
   return `<section class="card stat ${cls}"><div class="top-row"><span class="lbl">${label}</span><span class="per">${per}</span></div>
-    <div class="num ${+value ? "" : "zero"}">${num(value)}</div><div class="sub">${sub}</div><div class="viz">${viz}</div></section>`;
+    <div class="num ${+value ? "" : "zero"}">${num(value)}</div><div class="viz">${viz}</div></section>`;
 }
 
 // ------------------------------------------------------------------ overview (dashboard)
 function renderOverview() {
   const inv = S.inv;
-  if (!inv) return phead(t("dashboard")) + `<div class="grid g4">${skeleton(3).repeat(4)}</div>` + skeleton(5);
-  const st = stats(), guests = realGuests();
-  const sub = esc(t("sub_overview", { w: wherePlace(), n: inv.nodes.length, g: guests.length }));
+  if (!inv) return phead(t("dashboard")) + `<div class="grid g4">${skeleton(3).repeat(4)}</div><div class="grid g3">${skeleton(5).repeat(3)}</div>`;
+  const st = stats(), nr = nextRunTxt(inv.next_run);
+  const sub = esc(wherePlace() + " · " + (nr.none ? t("no_schedule") : t("next_x", { x: nr.s || nr.v })));
   const upToDate = st.total - st.pendSys, pct = st.total ? (upToDate / st.total) * 100 : 100;
   const meter = `<div class="meter"><svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bg" width="100" height="8"/><rect class="fg" width="${pct.toFixed(1)}" height="8"/></svg>
     <div class="legend"><span>${esc(t("m_uptodate", { n: upToDate }))}</span><span>${esc(t("m_pending", { n: st.pendSys }))}</span></div></div>`;
-  const cards = statCard("c-blue", t("st_avail"), t("per_check"), st.pend,
-      esc(st.pend ? t("st_avail_s", { a: st.pendSys, b: st.total }) : t("st_avail_none")), meter)
-    + statCard("c-green", t("st_updated"), t("days14"), sum(st.changes), t("st_updated_s"), spark(st.changes, st.start, t("st_updated_s")))
-    + statCard("c-red", t("st_problems"), t("days14"), sum(st.problems), t("st_problems_s"), spark(st.problems, st.start, t("st_problems_s")))
-    + statCard("c-amber", t("st_runs"), t("days14"), sum(st.runs), esc(t("st_runs_s", { u: st.upd, c: st.chk })), spark(st.runs, st.start, t("st_runs")));
-  return `${phead(t("dashboard"), sub, bulkActions())}${topNotes()}${updBanner()}${mailHint()}${renderRun()}
+  const cards = statCard("c-blue", t("st_avail"), t("per_check"), st.pend, meter)
+    + statCard("c-green", t("st_updated"), t("days14"), sum(st.changes), spark(st.changes, st.start, t("st_updated_s")))
+    + statCard("c-red", t("st_problems"), t("days14"), sum(st.problems), spark(st.problems, st.start, t("st_problems_s")))
+    + statCard("c-amber", t("st_runs"), t("days14"), sum(st.runs), spark(st.runs, st.start, t("st_runs")));
+  return `${phead(t("dashboard"), sub, bulkActions())}${topNotes()}${renderRun()}
     <div class="grid g4">${cards}</div>
-    <div class="grid g-main">${statusCard()}${nodesCard()}</div>
-    <div class="grid g2">${attentionCard()}${recentCard()}</div>`;
+    <div class="grid g3">${healthCard()}${nodesCard()}${recentCard()}</div>`;
 }
 
-function statusCard() {
-  const inv = S.inv, c = inv.config || {};
-  const nr = nextRunTxt(inv.next_run);
-  const last = (S.history && S.history[0]) || null;
-  let hero;
-  if (isRunning()) hero = `<div class="ring busy"><span class="spin"></span></div><div><b>${t("running")}</b><span>${S.run ? esc(S.run.id) : ""}</span></div>`;
-  else if (inv.reboot_pending) hero = `<div class="ring wait">${icon("power")}</div><div><b>${t("s_rebooting")}</b><span>${t("reboot_pending")}</span></div>`;
-  else hero = `<div class="ring">${icon("check")}</div><div><b>${t("idle")}</b><span>${nr.none ? t("auto_off") : t("auto_on")}</span></div>`;
-  const win = c.UPDATE_WINDOW
-    ? `${esc(c.UPDATE_WINDOW.replace("-", " – "))}<small>${inv.in_window ? t("open_w") : t("closed_w")}</small>`
-    : `<span class="muted">${t("no_window")}</span>`;
-  const lastHtml = last
-    ? `${runStatusBadge(last.status, last.problems)}${last.mode === "dryrun" ? t("k_check") : t("k_update")}<small>${esc(ago(last.start || runTs(last.id)))}</small>`
-    : `<span class="muted">${t("never")}</span>`;
-  const notify = c.NOTIFY || "errors";
-  return `<section class="card"><div class="state-hero">${hero}</div>
-    <dl class="rows">
-      <div><dt>${t("schedule")}</dt><dd>${esc(inv.schedule_text || "-")}${c.SCHEDULE ? `<small class="mono">${esc(c.SCHEDULE)}</small>` : ""}</dd></div>
-      <div><dt>${t("next_run")}</dt><dd>${esc(nr.v)}${nr.s ? `<small>${esc(nr.s)}</small>` : ""}</dd></div>
-      <div><dt>${t("window_l")}</dt><dd>${win}</dd></div>
-      <div><dt>${t("last_run")}</dt><dd>${lastHtml}</dd></div>
-      <div><dt>${t("notify_l")}</dt><dd>${t("nshort_" + notify)}${notify !== "never" && c.MAIL_TO ? `<small>${esc(c.MAIL_TO)}</small>` : ""}</dd></div>
-    </dl></section>`;
+// every system (guest or node) counts once, by its newest result
+function sysState(l) {
+  const x = l && [l.update, l.check].filter(Boolean).sort((a, b) => b.ts - a.ts)[0];
+  if (!x) return "none";
+  if (["FAIL", "ROLLBACK", "WARN"].includes(x.status)) return "bad";
+  return pendingOf(l) ? "pend" : "ok";
+}
+function healthCard() {
+  const n = { ok: 0, pend: 0, bad: 0, none: 0 };
+  for (const g of realGuests()) n[sysState(lastOf(guestKind(g), g.id))]++;
+  for (const x of S.inv.nodes || []) n[sysState(lastOf("NODE", x.name))]++;
+  const keys = ["ok", "pend", "bad", "none"], total = sum(keys.map(k => n[k]));
+  const R = 52, C = 2 * Math.PI * R, used = keys.filter(k => n[k]), gap = used.length > 1 ? 3 : 0;
+  let off = 0;
+  const arcs = used.map(k => {
+    const len = (n[k] / total) * C;
+    const a = `<circle class="arc k-${k}" cx="60" cy="60" r="${R}" stroke-dasharray="${Math.max(0, len - gap).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
+    off += len;
+    return a;
+  }).join("");
+  const legend = keys.map(k => `<li class="k-${k}"><i></i><span>${t("hs_" + k)}</span><b>${num(n[k])}</b></li>`).join("");
+  return `<section class="card">${chead(t("sys_status"))}<div class="health">
+      <div class="donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(t("sys_status"))}"><circle class="trk" cx="60" cy="60" r="${R}"/><g transform="rotate(-90 60 60)">${arcs}</g></svg>
+        <div class="mid"><b>${num(total)}</b><span>${t("systems")}</span></div></div>
+      <ul class="legend2">${legend}</ul></div></section>`;
 }
 
 function nodesCard() {
@@ -550,39 +548,16 @@ function nodesCard() {
   return `<section class="card">${chead(t("nodes"), inv.nodes.length)}<ul class="list">${rows}</ul></section>`;
 }
 
-function attentionCard() {   // the newest result per system that was not clean, plus pending reboots
-  const items = [];
-  const add = (name, tag, l) => {
-    if (!l) return;
-    const x = [l.update, l.check].filter(Boolean).sort((a, b) => b.ts - a.ts)[0];
-    if (!x) return;
-    const bad = ["FAIL", "ROLLBACK", "WARN"].includes(x.status);
-    const reboot = l.update && l.update.reboot;
-    if (bad || reboot) items.push({ name, tag, x: bad ? x : l.update, reboot: !bad && reboot });
-  };
-  for (const g of realGuests()) add(g.name, osTag(g), lastOf(guestKind(g), g.id));
-  for (const n of S.inv.nodes || []) add(n.name, '<span class="tag">Node</span>', lastOf("NODE", n.name));
-  items.sort((a, b) => b.x.ts - a.x.ts);
-  const rows = items.slice(0, 6).map(i => `<li class="link" data-act="detail" data-v="${esc(i.x.run)}" tabindex="0">
-      ${i.reboot ? badge("WARN", t("reboot_needed")) : badge(i.x.status)}
-      <div class="main"><div class="l1"><b>${esc(i.name)}</b>${i.tag}</div><div class="l2" title="${esc(i.x.summary)}">${esc(i.x.summary)}</div></div>
-      <div class="side"><span class="when">${esc(ago(i.x.ts))}</span>${icon("right")}</div></li>`).join("");
-  const body = rows ? `<ul class="list">${rows}</ul>`
-    : `<div class="empty"><div class="ring">${icon("check")}</div><b>${t("all_good")}</b><p>${t("all_good_p")}</p></div>`;
-  return `<section class="card">${chead(t("attention"), items.length || null)}${body}</section>`;
-}
-
 function recentCard() {
   const h = S.history;
   let body;
   if (!h) body = `<div class="sk-block">${'<span class="sk"></span>'.repeat(4)}</div>`;
   else if (!h.length) body = `<div class="empty"><div class="ring idle">${icon("clock")}</div><b>${t("no_history")}</b><p>${t("no_history_p")}</p></div>`;
-  else body = `<ul class="list">${h.slice(0, 6).map(r => `<li class="link" data-act="detail" data-v="${esc(r.id)}" tabindex="0">
+  else body = `<ul class="list">${h.slice(0, 5).map(r => `<li class="link" data-act="detail" data-v="${esc(r.id)}" tabindex="0">
       <div class="main"><div class="l1">${kindTxt(r.mode)}${runStatusBadge(r.status, r.problems)}</div>
         <div class="l2">${esc(r.subject ? cleanSubj(r.subject) : targetTxt(r.only))}</div></div>
-      <div class="side"><span class="when">${esc(ago(r.start || runTs(r.id)))}</span>${icon("right")}</div></li>`).join("")}</ul>`;
-  return `<section class="card">${chead(t("recent_runs"))}${body}
-    ${h && h.length ? `<div class="cfoot"><a href="#/history">${t("all_runs")}${icon("right")}</a></div>` : ""}</section>`;
+      <div class="side"><span class="when">${esc(ago(r.start || runTs(r.id)))}</span></div></li>`).join("")}</ul>`;
+  return `<section class="card">${chead(t("recent_runs"), null, h && h.length ? `<a class="more" href="#/history">${t("all_runs")}${icon("right")}</a>` : "")}${body}</section>`;
 }
 
 // ------------------------------------------------------------------ containers & VMs
@@ -711,13 +686,6 @@ function renderDetail() {
       <div class="results">${res || `<div class="r faint">${t("no_results")}</div>`}</div></section>
     <section class="card">${chead(t("events"))}<pre class="log">${log || "-"}</pre></section>`;
 }
-function renderLog() {
-  const refresh = `<button class="btn" data-act="reloadlog">${icon("refresh")}${t("refresh")}</button>`;
-  const head = phead(t("log_title"), t("sub_log"), refresh);
-  if (S.logText == null) return head + skeleton(10);
-  return `${head}<section class="card">${S.logText ? `<pre class="log solo" id="logpre">${esc(S.logText)}</pre>`
-    : `<div class="empty"><div class="ring idle">${icon("term")}</div><p>${t("log_empty")}</p></div>`}</section>`;
-}
 
 // ------------------------------------------------------------------ dialogs
 let lastFocus = null;
@@ -820,8 +788,26 @@ function renderSettings() {
   const look = `<section class="card">${chead(t("appearance"))}<div class="cbody">
     <div class="optrow"><div><b>${t("theme")}</b><span>${t("theme_sub")}</span></div>${themeSwitch()}</div>
     <div class="optrow"><div><b>${t("language")}</b><span>${t("lang_sub")}</span></div>${langSelect()}</div></div></section>`;
-  return `${head}${w ? "" : note("", "lock", t("set_ro"))}
-    <div class="grid g-set">${mail}<div class="stack">${renderUpd()}${look}</div></div>`;
+  return `${head}${w ? "" : note("", "lock", t("set_ro"))}${updBanner()}${mailHint()}
+    <div class="grid g-set"><div class="stack">${scheduleCard()}${mail}</div><div class="stack">${renderUpd()}${look}${aboutCard()}</div></div>`;
+}
+function scheduleCard() {   // read only here - the schedule is set in the setup wizard on the node
+  const inv = S.inv, c = inv.config || {}, nr = nextRunTxt(inv.next_run);
+  const win = c.UPDATE_WINDOW ? `${esc(c.UPDATE_WINDOW.replace("-", " – "))} · ${inv.in_window ? t("open_w") : t("closed_w")}` : t("no_window");
+  return `<section class="card">${chead(t("schedule"))}<div class="cbody">
+    <dl class="facts"><div><dt>${t("schedule")}</dt><dd>${esc(inv.schedule_text || "-")}</dd></div>
+      <div><dt>${t("next_run")}</dt><dd>${esc(nr.v)}${nr.s ? ` · ${esc(nr.s)}` : ""}</dd></div>
+      <div><dt>${t("window_l")}</dt><dd>${win}</dd></div></dl>
+    <p class="fine">${t("sched_hint")}</p></div></section>`;
+}
+function aboutCard() {
+  const inv = S.inv, a = (href, label) => `<a href="${href}" target="_blank" rel="noopener">${label}</a>`;
+  return `<section class="card">${chead(t("about"))}<div class="cbody">
+    <dl class="facts"><div><dt>pve-autoupdate</dt><dd>${esc(inv.version)}</dd></div>
+      <div><dt>${t("ui_version")}</dt><dd>${esc(S.session.version)}</dd></div>
+      <div><dt>${t("author")}</dt><dd>${esc(AUTHOR)}</dd></div></dl>
+    <div class="links">${a(WEBSITE, "kaimazon.de")}${a(REPO_URL, "GitHub")}${a(REPO_URL + "/issues", t("report_issue"))}
+      ${hasDonate() ? a(DONATE_URL, icon("heart") + t("donate")) : ""}</div></div></section>`;
 }
 async function saveMail(test) {
   const f = S.form;
@@ -960,10 +946,6 @@ async function loadHistory() {
   try { const r = await api("/api/history?n=60"); if (r.ok) S.history = r.data; } catch (e) { /* ignore */ }
   if (S.session) render();
 }
-async function loadLog() {
-  try { const r = await api("/api/log?n=400"); S.logText = r.ok ? r.data : ""; } catch (e) { S.logText = ""; }
-  if (S.session) { render(); const p = $("#logpre"); if (p) p.scrollTop = p.scrollHeight; }
-}
 function stopPolling() { clearInterval(pollRun); clearInterval(pollInv); }
 
 // ------------------------------------------------------------------ routing (#/guests, #/history/<run>)
@@ -973,7 +955,6 @@ function applyRoute() {
   const id = tab === "history" && m ? m[2] : null;
   if (tab !== S.tab && tab === "settings") S.form = null;
   S.tab = tab; S.menu = null;
-  if (tab === "log") { S.logText = null; loadLog(); }
   if (tab === "history" && id) openDetail(id);
   else { S.detail = null; if (tab === "history") loadHistory(); }
   render(); window.scrollTo(0, 0);
@@ -1031,7 +1012,6 @@ document.addEventListener("click", async ev => {
   else if (a === "closerun") { S.run = null; render(); }
   else if (a === "detail") location.hash = "#/history/" + v;
   else if (a === "reloadhist") loadHistory();
-  else if (a === "reloadlog") loadLog();
   else if (a === "savemail") saveMail(false);
   else if (a === "savemailtest") saveMail(true);
   else if (a === "updcheck") updCheck();
