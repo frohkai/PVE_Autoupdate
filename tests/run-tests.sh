@@ -94,7 +94,7 @@ check "locked 104 not touched"           bash -c "! grep -q 'pct snapshot 104' $
 check "mail sent"                        test -f "$MOCK/mail.1"
 check "mail subject rolled back"         has "$MOCK/mail.1" '^Subject: .*rolled back'
 check "mail has html part"               has "$MOCK/mail.1" 'text/html'
-check "no donate link while placeholder" bash -c "! grep -q liberapay $MOCK/mail.1"
+check "donate link in mail"            bash -c "python3 -c 'import email; m=email.message_from_file(open(\"$MOCK/mail.1\")); print(\"\".join((p.get_payload(decode=True) or b\"\").decode(\"utf-8\",\"replace\") for p in m.walk() if p.get_content_maintype()==\"text\"))' | grep -q 'liberapay.com/Viollent_Tech/donate'"
 cp "$MOCK/mail.1" /tmp/mail-en.eml
 
 # ----------------------------------------------------------------------------
