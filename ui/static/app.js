@@ -4,7 +4,7 @@
 const AUTHOR = "Kai Frohwerk";
 const WEBSITE = "https://kaimazon.de";
 const REPO_URL = "https://github.com/frohkai/PVE_Autoupdate";
-const DONATE_URL = "https://liberapay.com/__LIBERAPAY_USER__/donate";
+const DONATE_URL = "https://liberapay.com/Viollent_Tech/donate";
 const hasDonate = () => DONATE_URL.startsWith("http") && !DONATE_URL.includes("__");
 
 // ------------------------------------------------------------------ texts
