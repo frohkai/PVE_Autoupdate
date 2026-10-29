@@ -39,7 +39,7 @@ const TXT = {
     schedule: "Schedule", next_run: "Next run", last_run: "Last run", state: "Status",
     window_open: "update window open", window_closed: "outside the update window", no_window: "no time window",
     idle: "Ready", running: "Update running", reboot_pending: "Node reboot pending (post check follows)",
-    never: "never", nodes: "Nodes", guests: "Containers & VMs",
+    never: "never", nodes: "Nodes", guests: "System", kind_ct: "Container (LXC)", kind_vm: "Virtual machine",
     check: "Check", update: "Update", update_reboot: "Update + reboot", check_all: "Check all", update_all: "Update all",
     online: "online", offline: "offline", last_update: "Last update", last_check: "Last check", none_yet: "nothing yet",
     search: "Search name or ID", all: "All", cts: "Containers", vms: "VMs", auto_only: "Automatic",
@@ -111,7 +111,7 @@ const TXT = {
     schedule: "Zeitplan", next_run: "Nächster Lauf", last_run: "Letzter Lauf", state: "Status",
     window_open: "Zeitfenster offen", window_closed: "außerhalb des Zeitfensters", no_window: "kein Zeitfenster",
     idle: "Bereit", running: "Update läuft", reboot_pending: "Node-Neustart läuft (Nachkontrolle folgt)",
-    never: "noch nie", nodes: "Nodes", guests: "Container & VMs",
+    never: "noch nie", nodes: "Nodes", guests: "System", kind_ct: "Container (LXC)", kind_vm: "Virtuelle Maschine",
     check: "Prüfen", update: "Aktualisieren", update_reboot: "Aktualisieren + Neustart", check_all: "Alles prüfen", update_all: "Alles aktualisieren",
     online: "online", offline: "offline", last_update: "Letztes Update", last_check: "Letzte Prüfung", none_yet: "noch nichts",
     search: "Name oder ID suchen", all: "Alle", cts: "Container", vms: "VMs", auto_only: "Automatisch",
@@ -211,6 +211,7 @@ const ICONS = {
   dots: "M12 5.5v.01M12 12v.01M12 18.5v.01",
   dl: "M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14",
   power: "M12 3.5V11M7 6.5a7 7 0 1 0 10 0",
+  server: "M4 4.5h16v6H4zM4 13.5h16v6H4zM7.5 7.5h.01M7.5 16.5h.01",
 };
 function icon(n) { return `<svg class="ic${n === "dots" ? " dots" : ""}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[n]}"/></svg>`; }
 
@@ -283,12 +284,20 @@ function cleanSubj(s) {
     .replace(/\p{Extended_Pictographic}️?/gu, "").replace(/\s{2,}/g, " ").trim();
   return c.charAt(0).toUpperCase() + c.slice(1);
 }
-function osTag(g) {   // one tag per guest: kind + OS ("CT · debian", "VM · Windows")
-  const os = (g.os || "").toLowerCase(), kind = g.type === "qemu" ? "VM" : "CT";
-  if (os.startsWith("w")) return `<span class="tag win">${kind} · ${t("os_windows")}</span>`;
-  if (!os) return `<span class="tag">${kind}</span>`;
-  if (os === "l26" || os === "l24") return `<span class="tag">${kind} · ${t("os_linux")}</span>`;
-  return `<span class="tag">${kind} · ${esc(os)}</span>`;
+function kindIcon(g) {   // like Proxmox: cube = container (LXC), screen = virtual machine
+  const k = g.type === "qemu" ? "vm" : "ct", label = t("kind_" + k);
+  return `<span class="gk ${k}" title="${esc(label)}">${icon(k === "vm" ? "monitor" : "box")}<span class="sr">${esc(label)}</span></span>`;
+}
+function osTag(g) {   // operating system only - the kind is shown by kindIcon()
+  const os = (g.os || "").toLowerCase();
+  if (os.startsWith("w")) return `<span class="tag win">${t("os_windows")}</span>`;
+  if (!os) return "";
+  if (os === "l26" || os === "l24") return `<span class="tag">${t("os_linux")}</span>`;
+  return `<span class="tag">${esc(os)}</span>`;
+}
+function shortIp(ip) {   // long IPv6 addresses: first two and the last group, the full address goes into the tooltip
+  const s = String(ip || ""), p = s.split(":");
+  return p.length > 4 ? `${p[0]}:${p[1]}:…:${p[p.length - 1]}` : s;
 }
 function kindTxt(mode) { return mode === "dryrun" ? `<span class="kind">${icon("search")}${t("k_check")}</span>` : `<span class="kind">${icon("dl")}${t("k_update")}</span>`; }
 function resultCell(r, slot) {
@@ -422,7 +431,7 @@ function renderApp() {
   else body = renderSettings();
   const brand = `<a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><span><b>PVE Autoupdate</b><small>${esc(wherePlace())}</small></span></a>`;
   return `<aside class="sidebar">${brand}
-      <nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "box", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
+      <nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "server", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
       <div class="side-foot">${sideStatus()}${accountMenu("acct")}</div>
     </aside>
     <header class="mtop">${brand}${accountMenu("acct-m")}</header>
@@ -541,7 +550,7 @@ function nodesCard() {
         <button role="menuitem" data-act="go" data-mode="update" data-t="${esc(key)}" ${dis}>${icon("dl")}${t("update")}</button>
         <button role="menuitem" class="danger" data-act="go" data-mode="update" data-reboot="yes" data-t="${esc(key)}" ${dis}>${icon("power")}${t("update_reboot")}</button></div>` : ""}</div>` : "";
     return `<li><span class="dot ${n.online ? "on" : "off"}" title="${n.online ? t("online") : t("offline")}"></span>
-      <div class="main"><div class="l1"><b>${esc(n.name)}</b>${n.name === inv.self ? `<span class="tag ui" title="${t("ui_node")}">UI</span>` : ""}<span class="ip">${esc(n.ip)}</span></div>
+      <div class="main"><div class="l1"><b>${esc(n.name)}</b>${n.name === inv.self ? `<span class="tag ui" title="${t("ui_node")}">UI</span>` : ""}<span class="ip" title="${esc(n.ip)}">${esc(shortIp(n.ip))}</span></div>
         <div class="l2" title="${esc(u ? u.summary : "")}">${u ? `${t("last_update")} ${esc(ago(u.ts))} · ${esc(u.summary)}` : t("none_yet")}</div></div>
       <div class="side">${side}${menu}</div></li>`;
   }).join("");
@@ -587,7 +596,7 @@ function renderGuests() {
     const l = lastOf(guestKind(g), g.id);
     return `<tr class="${S.picked.has(g.id) ? "picked" : ""}">
       ${w ? `<td class="chk"><input type="checkbox" data-act="pick" data-v="${g.id}" ${S.picked.has(g.id) ? "checked" : ""} aria-label="${esc(g.name)}"></td>` : ""}
-      <td class="nm"><div class="l1"><b>${esc(g.name)}</b>${osTag(g)}</div><div class="l2"><span class="idm">${esc(t("id_on", { id: g.id, node: g.node }))}</span></div></td>
+      <td class="nm"><div class="l1">${kindIcon(g)}<b title="${esc(g.name)}">${esc(g.name)}</b></div><div class="l2">${osTag(g)}<span class="idm">${esc(t("id_on", { id: g.id, node: g.node }))}</span></div></td>
       <td class="hide-s nw"><span class="st"><span class="dot ${g.status === "running" ? "on" : ""}"></span>${esc(g.status === "running" ? t("st_running") : t("st_stopped"))}</span></td>
       <td class="hide-s" title="${esc(g.selected ? t("auto_tip") : t("manual_tip"))}">${g.selected ? `<span class="yes">${icon("check")}<span class="sr">${t("yes")}</span></span>` : `<span class="no"><span aria-hidden="true">–</span><span class="sr">${t("no")}</span></span>`}</td>
       <td class="res hide-m">${resultCell(l, "check")}</td>

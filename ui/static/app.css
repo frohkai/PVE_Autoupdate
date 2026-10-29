@@ -415,7 +415,8 @@ main { flex: 1 0 auto; margin-left: var(--side-w); padding: var(--s8) var(--s8) 
 .list .main .l2 { color: var(--muted); font-size: var(--fs-xs); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list .side { display: flex; align-items: center; gap: var(--s2); flex: none; }
 .list .when { color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; }
-.list .ip { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.list .ip { color: var(--muted); font-family: var(--mono); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .main .l1 > b, .list .main .l1 > .tag { flex: none; }
 .list > li.link { cursor: pointer; transition: background-color 120ms ease; }
 .list > li.link:hover { background: var(--hover); }
 .list .pend { font-size: var(--fs-xs); font-weight: 600; color: var(--info); white-space: nowrap; }
@@ -659,3 +660,14 @@ pre.log {
 a.btn:hover { text-decoration: none; }
 .phead .ttl h1 { overflow: hidden; text-overflow: ellipsis; }
 .phead > div > p.muted { margin-top: 4px; }
+
+/* kind of guest: cube = container (LXC), screen = virtual machine */
+.gk { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; flex: none; }
+.gk .ic { width: 15px; height: 15px; }
+.gk.ct { color: var(--accent-text); background: var(--accent-soft); }
+.gk.vm { color: var(--info); background: var(--well); border: 1px solid var(--line-soft); }
+/* name cell: icon + name on one line (long names end with an ellipsis), OS tag and ID below */
+.tbl .nm { min-width: 200px; }
+.tbl .nm .l1 { flex-wrap: nowrap; min-width: 0; }
+.tbl .nm .l1 > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl .nm .l2 .tag { height: 18px; padding: 0 6px; font-size: 10.5px; }
