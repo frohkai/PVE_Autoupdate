@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Proxmox VE 7 | 8 | 9](https://img.shields.io/badge/Proxmox%20VE-7%20%7C%208%20%7C%209-E57000?logo=proxmox&logoColor=white)
 ![Language: EN | DE](https://img.shields.io/badge/UI-English%20%7C%20Deutsch-informational)
-[![Liberapay](https://img.shields.io/liberapay/receives/__LIBERAPAY_USER__.svg?logo=liberapay&color=F2A93B)](https://liberapay.com/__LIBERAPAY_USER__/donate)
+[![Liberapay](https://img.shields.io/liberapay/receives/Viollent_Tech.svg?logo=liberapay&color=F2A93B)](https://liberapay.com/Viollent_Tech/donate)
 [![kaimazon.de](https://img.shields.io/badge/by-kaimazon.de-14181F?labelColor=F2A93B)](https://kaimazon.de)
 
 [Deutsch ↓](#-deutsch)
@@ -150,7 +150,7 @@ HEALTH_CMD='...'             # exit 0 = healthy, otherwise rollback
 
 pve-autoupdate is free and stays free. If it saves you time, I appreciate your support on Liberapay:
 
-<a href="https://liberapay.com/__LIBERAPAY_USER__/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
+<a href="https://liberapay.com/Viollent_Tech/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
 Issues and pull requests are welcome.
 
@@ -226,7 +226,7 @@ Danach kommen die Nodes dran und starten bei Bedarf **nacheinander** neu, mit Qu
 
 pve-autoupdate ist und bleibt kostenlos. Wenn es dir Zeit spart, freue ich mich über Unterstützung auf Liberapay:
 
-<a href="https://liberapay.com/__LIBERAPAY_USER__/donate"><img alt="Mit Liberapay spenden" src="https://liberapay.com/assets/widgets/donate.svg"></a>
+<a href="https://liberapay.com/Viollent_Tech/donate"><img alt="Mit Liberapay spenden" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
 ---
 
