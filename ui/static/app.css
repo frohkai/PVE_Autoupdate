@@ -69,10 +69,10 @@
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --page: 1240px;
-  --side-w: 248px;
+  --side-w: 218px;
 
   /* the sidebar stays dark in both themes - the amber logo sits on it */
-  --side-bg: #161B24;
+  --side-bg: #15242c;
   --side-line: #232A36;
   --side-text: #C3CAD6;
   --side-muted: #8590A3;
@@ -343,7 +343,7 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 
 /* ================================================================ page */
 main { flex: 1 0 auto; margin-left: var(--side-w); padding: var(--s8) var(--s8) var(--s10); }
-.page { max-width: var(--page); margin: 0 auto; }
+.page { width: 100%; min-width: 0; }
 .phead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s4); margin-bottom: var(--s5); flex-wrap: wrap; }
 .phead h1 { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
 .phead p { color: var(--muted); font-size: var(--fs-sm); margin-top: 2px; }
@@ -671,3 +671,16 @@ a.btn:hover { text-decoration: none; }
 .tbl .nm .l1 { flex-wrap: nowrap; min-width: 0; }
 .tbl .nm .l1 > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tbl .nm .l2 .tag { height: 18px; padding: 0 6px; font-size: 10.5px; }
+
+main { display: flex; flex-direction: column; min-height: 100vh; }
+main > .page { flex: 1; }
+.project-footer { margin-top: var(--s8); padding: var(--s5) 0; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s4); }
+.project-footer small { display: block; color: var(--muted); }
+.project-footer nav { display: flex; flex-wrap: wrap; gap: var(--s4); }
+.project-footer a { color: var(--muted); text-underline-offset: 3px; }
+.mail-preview { display: block; width: 100%; height: 65vh; margin-top: var(--s4); border: 1px solid var(--line); }
+@media(max-width:680px) {
+  .page .phead, .page .actions, .page .btnrow { flex-wrap: wrap; }
+  .page .grid > *, .page .stack, .page .card { min-width: 0; }
+}
