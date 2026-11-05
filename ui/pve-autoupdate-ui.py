@@ -278,9 +278,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        preview = code == 200 and self.path.split("?", 1)[0] == "/mail-preview.html"
+        self.send_header("X-Frame-Options", "SAMEORIGIN" if preview else "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy",
+                         "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'" if preview else
                          "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
                          "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         for k, v in (headers or {}).items():

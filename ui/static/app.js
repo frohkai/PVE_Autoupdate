@@ -10,6 +10,8 @@ const hasDonate = () => DONATE_URL.startsWith("http") && !DONATE_URL.includes("_
 // ------------------------------------------------------------------ texts
 const TXT = {
   en: {
+    report_systems: "Systems", report_packages: "Installed packages", report_results: "System results", no_attention: "No action required.",
+    mail_theme: "Mail colour scheme", mail_preview: "Mail preview", site_links: "My links", project_by: "A project by", sample_attention: "Needs attention", sample_success: "Successful run", sample_dryrun: "Dry run",
     upd_title: "New version {v} available", upd_installed: "installed: {v}", upd_whatsnew: "What's new", upd_now: "Update now",
     upd_check: "Check now", upd_section: "Program updates", upd_installed_l: "Installed version", upd_latest_l: "Newest version",
     upd_checked_l: "Last check", upd_none: "not checked yet", upd_uptodate: "Up to date.", upd_checking: "Checking GitHub ...",
@@ -82,6 +84,8 @@ const TXT = {
     sched_hint: "Schedule and time window are set on the node: pve-autoupdate setup", about: "About", ui_version: "Web UI", author: "Author",
   },
   de: {
+    report_systems: "Systeme", report_packages: "Installierte Pakete", report_results: "Systemergebnisse", no_attention: "Kein Handlungsbedarf gemeldet.",
+    mail_theme: "Farbschema der Statusmail", mail_preview: "Mailvorschau", site_links: "Meine Links", project_by: "Ein Projekt von", sample_attention: "Handlungsbedarf", sample_success: "Erfolgreicher Lauf", sample_dryrun: "Testlauf",
     upd_title: "Neue Version {v} verfügbar", upd_installed: "installiert: {v}", upd_whatsnew: "Neu in dieser Version", upd_now: "Jetzt aktualisieren",
     upd_check: "Jetzt prüfen", upd_section: "Programm-Updates", upd_installed_l: "Installierte Version", upd_latest_l: "Neueste Version",
     upd_checked_l: "Letzte Prüfung", upd_none: "noch nicht geprüft", upd_uptodate: "Aktuell.", upd_checking: "Frage GitHub ...",
@@ -435,7 +439,10 @@ function renderApp() {
       <div class="side-foot">${sideStatus()}${accountMenu("acct")}</div>
     </aside>
     <header class="mtop">${brand}${accountMenu("acct-m")}</header>
-    <main><div class="page">${body}</div></main>`;
+    <main><div class="page">${body}</div><footer class="project-footer"><div><b>PVE Autoupdate</b><small>${t("project_by")} ${AUTHOR}</small></div>
+      <nav aria-label="${t("site_links")}"><a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a>
+      <a href="https://links.kaimazon.de" target="_blank" rel="noopener">${t("site_links")}</a>
+      ${hasDonate() ? `<a href="${DONATE_URL}" target="_blank" rel="noopener">${t("donate")}</a>` : ""}</nav></footer></main>`;
 }
 function topNotes() {   // problems that matter on every operational page
   let h = S.invErr ? note("err", "alert", `<b>${t("node_down")}</b> · ${esc(S.invErr)}`) : "";
@@ -494,11 +501,37 @@ function statCard(cls, label, per, value, viz) {
 }
 
 // ------------------------------------------------------------------ overview (dashboard)
+function latestReport(run) {
+  if (!run || !Array.isArray(run.systems)) return "";
+  const rows = run.systems;
+  const problems = rows.filter(r => ["FAIL","WARN","ROLLBACK"].includes(r.status) || r.reboot);
+  const cells = rows.map(r => `<tr><td><b>${esc(r.name || r.id)}</b><div class="l2">${esc(r.kind)} · ${esc(r.node)}</div></td>
+    <td>${badge(r.status)}</td><td>${esc(r.summary)}${r.reboot ? " · " + t("reboot_needed") : ""}</td></tr>`).join("");
+  const counts = [[t("report_systems"),rows.length],[t("report_packages"),run.packages || 0],
+    [t("b_ROLLBACK"),rows.filter(r => r.status === "ROLLBACK").length],[t("reboot_needed"),rows.filter(r => r.reboot).length]];
+  const metrics = counts.map(([label,n])=>`<div class="card stat"><span class="lbl">${label}</span><div class="num">${num(n)}</div></div>`).join("");
+  const days = stats(), trend = Array(DAYS).fill(0);
+  for (const h of S.history || []) {
+    const i = Math.floor(((h.start || 0) - days.start) / 86400);
+    if (i >= 0 && i < DAYS && h.mode === "live") trend[i] += h.packages || 0;
+  }
+  const attention = problems.map(r=>`<li><a href="#/history/${encodeURIComponent(run.id)}"><b>${esc(r.name || r.id)}</b> · ${r.reboot ? t("reboot_needed") : t("b_"+r.status)}</a></li>`).join("");
+  return `<div class="grid g4">${metrics}</div><div class="grid grid2">
+    <section class="card">${chead(t("report_packages"), null,t("days14"))}<div class="cbody">${spark(trend,days.start,t("report_packages"))}</div></section>
+    <section class="card">${chead(t("sample_attention"))}<div class="cbody">${attention ? "<ul>"+attention+"</ul>" : t("no_attention")}</div></section></div>
+    <section class="card">${chead(t("report_results"),null,`<a href="#/history/${encodeURIComponent(run.id)}">${esc(fmt(run.start))}</a>`)}
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>${t("name")}</th><th>${t("status")}</th><th>${t("report_results")}</th></tr></thead><tbody>${cells}</tbody></table></div></section>`;
+}
+
+
 function renderOverview() {
   const inv = S.inv;
   if (!inv) return phead(t("dashboard")) + `<div class="grid g4">${skeleton(3).repeat(4)}</div><div class="grid g3">${skeleton(5).repeat(3)}</div>`;
   const st = stats(), nr = nextRunTxt(inv.next_run);
   const sub = esc(wherePlace() + " · " + (nr.none ? t("no_schedule") : t("next_x", { x: nr.s || nr.v })));
+  const report = latestReport((S.history || []).find(r => Array.isArray(r.systems)));
+  if (report) return phead(t("dashboard"), sub, `<a class="btn" href="#/settings">${t("mail_preview")}</a>` + bulkActions())
+    + topNotes() + renderRun() + report + `<div class="grid g3">${healthCard()}${nodesCard()}${recentCard()}</div>`;
   const upToDate = st.total - st.pendSys, pct = st.total ? (upToDate / st.total) * 100 : 100;
   const meter = `<div class="meter"><svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bg" width="100" height="8"/><rect class="fg" width="${pct.toFixed(1)}" height="8"/></svg>
     <div class="legend"><span>${esc(t("m_uptodate", { n: upToDate }))}</span><span>${esc(t("m_pending", { n: st.pendSys }))}</span></div></div>`;
@@ -506,7 +539,7 @@ function renderOverview() {
     + statCard("c-green", t("st_updated"), t("days14"), sum(st.changes), spark(st.changes, st.start, t("st_updated_s")))
     + statCard("c-red", t("st_problems"), t("days14"), sum(st.problems), spark(st.problems, st.start, t("st_problems_s")))
     + statCard("c-amber", t("st_runs"), t("days14"), sum(st.runs), spark(st.runs, st.start, t("st_runs")));
-  return `${phead(t("dashboard"), sub, bulkActions())}${topNotes()}${renderRun()}
+  return `${phead(t("dashboard"), sub, `<a class="btn" href="#/settings">${t("mail_preview")}</a>` + bulkActions())}${topNotes()}${renderRun()}
     <div class="grid g4">${cards}</div>
     <div class="grid g3">${healthCard()}${nodesCard()}${recentCard()}</div>`;
 }
@@ -751,11 +784,12 @@ function openStart(mode, targetSpec, rebootPreset) {
 }
 
 // ------------------------------------------------------------------ settings (mail)
-const MAIL_KEYS = ["NOTIFY", "MAIL_TO", "MAIL_TRANSPORT", "MAIL_FROM", "TITLE", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER"];
+const MAIL_KEYS = ["MAIL_THEME", "NOTIFY", "MAIL_TO", "MAIL_TRANSPORT", "MAIL_FROM", "TITLE", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USER"];
 function initForm() {
   const c = (S.inv && S.inv.config) || {};
   S.form = {};
   for (const k of MAIL_KEYS) S.form[k] = c[k] != null ? c[k] : "";
+  S.form.MAIL_THEME = S.form.MAIL_THEME === "dark" ? "dark" : "light";
   S.form.NOTIFY = S.form.NOTIFY || "errors";
   S.form.MAIL_TRANSPORT = S.form.MAIL_TRANSPORT || "system";
   S.form.SMTP_PORT = S.form.SMTP_PORT || "587";
@@ -783,6 +817,7 @@ function renderSettings() {
     esc(S.setMsg.text) + (S.setMsg.detail ? `<pre class="log">${esc(S.setMsg.detail)}</pre>` : "")) : "";
   const mail = `<section class="card">${chead(t("set_mail"))}
     <form id="setform" class="cbody" autocomplete="off"><p class="lead">${t("set_mail_sub")}</p>
+      ${sel("MAIL_THEME", t("mail_theme"), [["light", t("th_light")], ["dark", t("th_dark")]])}
       ${sel("NOTIFY", t("set_notify"), [["never", t("n_never")], ["errors", t("n_errors")], ["changes", t("n_changes")], ["always", t("n_always")]])}
       ${on ? `${fld("MAIL_TO", t("set_to"), "text", t("set_to_ph"))}
         ${sel("MAIL_TRANSPORT", t("set_transport"), [["system", t("tr_system")], ["smtp", t("tr_smtp")]])}
@@ -794,11 +829,16 @@ function renderSettings() {
       <div class="btnrow"><button type="button" class="btn primary" data-act="savemail" ${dis}>${S.busy ? '<span class="spin"></span>' : ""}${t("set_save")}</button>
         ${on ? `<button type="button" class="btn" data-act="savemailtest" ${dis}>${icon("mail")}${t("set_save_test")}</button>` : ""}</div>
     </form></section>`;
+  const sample = S.mailSample || "attention";
+  const preview = `<section class="card">${chead(t("mail_preview"))}<div class="cbody">
+    <label class="field"><span>${t("mail_preview")}</span><select id="mail-sample">
+    ${["attention", "success", "dryrun"].map(v => opt(v, sample, t("sample_" + v))).join("")}</select></label>
+    <iframe class="mail-preview" title="${t("mail_preview")}" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" src="mail-preview.html#${f.MAIL_THEME}-${sample}"></iframe></div></section>`;
   const look = `<section class="card">${chead(t("appearance"))}<div class="cbody">
     <div class="optrow"><div><b>${t("theme")}</b><span>${t("theme_sub")}</span></div>${themeSwitch()}</div>
     <div class="optrow"><div><b>${t("language")}</b><span>${t("lang_sub")}</span></div>${langSelect()}</div></div></section>`;
   return `${head}${w ? "" : note("", "lock", t("set_ro"))}${updBanner()}${mailHint()}
-    <div class="grid g-set"><div class="stack">${scheduleCard()}${mail}</div><div class="stack">${renderUpd()}${look}${aboutCard()}</div></div>`;
+    <div class="grid g-set"><div class="stack">${mail}${scheduleCard()}</div><div class="stack">${preview}${look}${renderUpd()}${aboutCard()}</div></div>`;
 }
 function scheduleCard() {   // read only here - the schedule is set in the setup wizard on the node
   const inv = S.inv, c = inv.config || {}, nr = nextRunTxt(inv.next_run);
@@ -825,7 +865,7 @@ async function saveMail(test) {
   if (on && !/^[^@\s,]+@[^@\s,]+\.[^@\s,]+(\s*,\s*[^@\s,]+@[^@\s,]+\.[^@\s,]+)*$/.test(f.MAIL_TO.trim())) return fail(t("need_to"));
   if (smtp && !f.SMTP_HOST.trim()) return fail(t("need_host"));
   if (smtp && !(+f.SMTP_PORT >= 1 && +f.SMTP_PORT <= 65535)) return fail(t("need_port"));
-  const body = { NOTIFY: f.NOTIFY };
+  const body = { NOTIFY: f.NOTIFY, MAIL_THEME: f.MAIL_THEME };
   if (on) {
     Object.assign(body, { MAIL_TO: f.MAIL_TO.trim(), MAIL_TRANSPORT: f.MAIL_TRANSPORT, MAIL_FROM: f.MAIL_FROM.trim(), TITLE: f.TITLE.trim() });
     if (smtp) {
@@ -1033,6 +1073,7 @@ document.addEventListener("input", ev => {
 document.addEventListener("change", ev => {
   const el = ev.target, k = el.dataset && el.dataset.f;
   if (el.matches && el.matches("[data-langsel]")) { S.lang = el.value; savePref("lang", el.value); render(); }
+  else if (el.id === "mail-sample") { S.mailSample = el.value; render(); }
   else if (k && S.form && el.tagName === "SELECT") { S.form[k] = el.value; render(); }
 });
 document.addEventListener("keydown", ev => {

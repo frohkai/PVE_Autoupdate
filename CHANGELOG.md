@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2.2.0 - 2026-11-05
+
+- Select light or dark status emails independently from the web UI. Reports show action items before system results, with an embedded project emblem and project links.
+- Full-width web pages, project footer and six example reports in Settings.
+
 - New web UI design: an app layout with a fixed sidebar (Dashboard, Containers & VMs, History, Settings), each page with its own URL; back/forward and bookmarks work. On phones a top bar and a tab bar at the bottom
 - Dashboard shows only the state: four stat cards with the last 14 days as daily bars (updated systems, problems, runs) and a meter for pending updates, system status as a ring (up to date / updates available / problem / not checked), nodes with an action menu and the recent runs
 - Settings collect everything else: schedule and time window, mail notification, program updates, appearance and an "About" card with version and links

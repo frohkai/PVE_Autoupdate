@@ -6,7 +6,11 @@
 #
 set -u
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$SRC/pve-autoupdate.sh"
+# The installed entry point is executable. The source mount is read-only,
+# so exercise a private executable copy, including the detached start path.
+SCRIPT=$(mktemp /tmp/pve-autoupdate-test.XXXXXX) || exit 1
+trap 'rm -f "$SCRIPT"' EXIT
+install -m 755 "$SRC/pve-autoupdate.sh" "$SCRIPT" || exit 1
 export MOCK=/tmp/mock
 mkdir -p /usr/local/mockbin && cp "$SRC"/tests/mocks/* /usr/local/mockbin/ && chmod +x /usr/local/mockbin/*
 export PATH="/usr/local/mockbin:$PATH"

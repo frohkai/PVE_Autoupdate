@@ -21,7 +21,7 @@
 
 set -uo pipefail
 
-VERSION="2.1.0"
+VERSION="2.2.0"
 AUTHOR="Kai Frohwerk"
 REPO="frohkai/PVE_Autoupdate"
 WEBSITE="https://kaimazon.de"
@@ -56,6 +56,7 @@ UPDATE_WINDOW=""           # "02:00-05:00": updates and reboots only inside this
 NOTIFY=errors              # never | errors | changes | always
 MAIL_TO=""
 MAIL_FROM=""
+MAIL_THEME=light            # light | dark
 MAIL_TRANSPORT=system      # system (postfix/sendmail) | smtp
 SMTP_HOST=""
 SMTP_PORT=587
@@ -71,7 +72,7 @@ WIN_REBOOT_TIMEOUT=60      # minutes a Windows VM may take to come back after th
 WIN_IGNORE_SERVICES="sppsvc,gupdate,gupdatem,edgeupdate,edgeupdatem,MapsBroker,RemoteRegistry,TrustedInstaller,wuauserv,UsoSvc,BITS,WaaSMedicSvc,DoSvc,InstallService,TabletInputService,CDPSvc,ShellHWDetection,sedsvc,WbioSrvc,tiledatamodelsvc,MicrosoftEdgeElevationService,clr_optimization_v4.0.30319_32,clr_optimization_v4.0.30319_64"
 
 CONF_VARS="UI_LANG GUESTS EXCLUDE INCLUDE_VMS UPDATE_HOSTS UPDATE_SERVICES SNAPSHOT REBOOT_GUESTS
-REBOOT_HOSTS SCHEDULE UPDATE_WINDOW NOTIFY MAIL_TO MAIL_FROM MAIL_TRANSPORT SMTP_HOST SMTP_PORT
+REBOOT_HOSTS SCHEDULE UPDATE_WINDOW NOTIFY MAIL_TO MAIL_FROM MAIL_THEME MAIL_TRANSPORT SMTP_HOST SMTP_PORT
 SMTP_SECURITY SMTP_USER SMTP_PASS TITLE SETTLE UPDATE_WINDOWS WIN_UPDATE_TIMEOUT WIN_REBOOT_TIMEOUT
 WIN_IGNORE_SERVICES"
 
@@ -1035,7 +1036,7 @@ send_mail(){ # subject textfile [htmlfile]
   AU_SUBJECT="$1" AU_TO="$MAIL_TO" AU_FROM="$from" AU_TRANSPORT="$MAIL_TRANSPORT" \
   AU_HOST="$SMTP_HOST" AU_PORT="$SMTP_PORT" AU_SEC="$SMTP_SECURITY" AU_USER="$SMTP_USER" AU_PASS="$SMTP_PASS" \
   python3 - "$2" "${3:-}" <<'PY'
-import os, sys, ssl, shutil, smtplib, subprocess
+import base64, os, sys, ssl, shutil, smtplib, subprocess
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 e = os.environ
@@ -1045,6 +1046,209 @@ m["Date"] = formatdate(localtime=True); m["Message-ID"] = make_msgid()
 m.set_content(open(sys.argv[1], encoding="utf-8", errors="replace").read())
 if len(sys.argv) > 2 and sys.argv[2] and os.path.exists(sys.argv[2]):
     m.add_alternative(open(sys.argv[2], encoding="utf-8", errors="replace").read(), subtype="html")
+    # Offline PNG from ui/static/emblem.svg.
+    emblem = base64.b64decode("""
+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
+RK5CYII=
+""")
+    m.get_payload()[-1].add_related(emblem, maintype="image", subtype="png", cid="<pve-emblem>", disposition="inline")
 if e["AU_TRANSPORT"] == "smtp":
     port = int(e.get("AU_PORT") or 587); sec = e.get("AU_SEC", "starttls")
     ctx = ssl.create_default_context()
@@ -1079,32 +1283,47 @@ badge(){
   printf '<span style="background:%s;color:%s;padding:2px 9px;border-radius:11px;font-weight:600;font-size:12px;white-space:nowrap">%s</span>' "$bg" "$fg" "$t"
 }
 
-html_open(){ # kicker headline color emoji time
-  # kaimazon.de look: ink header, amber kicker, status colour as a bar below
-  local logo='<span style="display:inline-block;width:34px;height:34px;line-height:34px;border-radius:9px;background:#F2A93B;color:#14181F;font-weight:800;font-size:15px;text-align:center;letter-spacing:-.5px">KF</span>'
-  has_logo && logo="<img src=\"$LOGO_URL\" width=\"34\" height=\"34\" alt=\"KF\" style=\"display:block;border-radius:9px\">"
+html_open(){ # category, headline, accent, legacy icon, timestamp
+  mail_bg='#edf1f5'; mail_paper='#ffffff'; mail_text='#172b40'; mail_muted='#526171'
+  mail_line='#dce3eb'; mail_well='#f5f7fa'; mail_link='#395c7c'
+  if [ "$MAIL_THEME" = dark ]; then
+    mail_bg='#10171e'; mail_paper='#18222d'; mail_text='#dce7f1'; mail_muted='#b2c1cf'
+    mail_line='#334452'; mail_well='#202d39'; mail_link='#accff2'
+  fi
   cat <<EOF
-<div style="background:#14181F;padding:28px 0;font-family:Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-<div style="max-width:660px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #262D3B">
-<div style="background:#1F2531;padding:22px 26px 20px;color:#EEF1F6">
-<table cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td style="padding-right:12px;vertical-align:middle">$logo</td>
-<td style="vertical-align:middle;font-family:'IBM Plex Mono',Consolas,Menlo,monospace;font-size:12px;color:#F2A93B;letter-spacing:.6px">&gt;_ $1</td></tr></table>
-<div style="font-family:'Schibsted Grotesk',Inter,-apple-system,Segoe UI,Arial,sans-serif;font-size:26px;font-weight:800;margin-top:14px;letter-spacing:-.3px">$4&nbsp; $2</div>
-<div style="font-size:13px;color:#A8B0BE;margin-top:4px">$5</div>
-</div>
-<div style="height:4px;background:$3;line-height:4px;font-size:0">&nbsp;</div>
+<!doctype html><html lang="$UI_LANG"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="$MAIL_THEME"></head>
+<body style="margin:0;background:$mail_bg;font-family:Arial,Helvetica,sans-serif;color:$mail_text">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="$mail_bg"><tr><td align="center" style="padding:20px 8px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="$mail_paper" style="max-width:640px;table-layout:fixed;border:1px solid $mail_line;color:$mail_text"><tr><td align="left" style="padding:22px;overflow-wrap:anywhere">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="padding-right:12px"><img src="cid:pve-emblem" width="48" height="36" alt=""></td>
+<td><b style="font-size:16px;letter-spacing:1px">PVE AUTOUPDATE</b><br><span style="font-size:11px;color:$mail_muted">$1</span></td></tr></table>
+<div style="border-top:1px solid $mail_line;margin-top:20px;padding-top:20px;font-size:12px;color:$mail_muted">$5</div>
+<h1 style="margin:6px 0 16px;font-size:27px;line-height:1.22">$2</h1>
 EOF
 }
-html_close(){ # footer
-  local links
-  links="<span style=\"color:#EEF1F6;font-weight:700\">$(he "$AUTHOR")</span> &middot; <a href=\"$WEBSITE\" style=\"color:#F2A93B;text-decoration:none\">${WEBSITE#https://}</a>"
-  has_repo && links="$links &middot; <a href=\"$REPO_URL\" style=\"color:#A8B0BE;text-decoration:none\">GitHub</a>"
-  echo "<div style=\"padding:14px 24px 16px;color:#80868b;font-size:12px;line-height:1.5;border-top:1px solid #eceff1\">$1</div>"
-  echo "<div style=\"background:#14181F;padding:16px 24px;color:#6C7484;font-size:12px;line-height:1.7\">"
-  echo "<span style=\"font-family:'IBM Plex Mono',Consolas,Menlo,monospace;color:#F2A93B\">&gt;_</span> pve-autoupdate $VERSION &middot; $links"
-  has_donate && echo "<br><a href=\"$DONATE_URL\" style=\"display:inline-block;margin-top:8px;background:#F2A93B;color:#201503;padding:6px 14px;border-radius:999px;font-weight:700;text-decoration:none\">&#9829; $(L "Support on Liberapay" "Auf Liberapay unterstützen")</a>"
-  echo '</div></div></div>'
+html_close(){
+  cat <<EOF
+<div style="padding:16px;background:$mail_well;color:$mail_muted;margin-top:20px;font-size:12px;line-height:1.7">$1</div>
+<div style="border-top:1px solid $mail_line;padding:16px 0 0;margin-top:18px;font-size:13px"><b>PVE Autoupdate</b><br>
+<span style="color:$mail_muted">Version $(he "$VERSION") · $(L "A project by" "Ein Projekt von") $(he "$AUTHOR")</span><br>
+<a style="color:$mail_link;line-height:2" href="$WEBSITE">kaimazon.de</a> &nbsp; <a style="color:$mail_link" href="https://links.kaimazon.de">$(L "My links" "Meine Links")</a>
+EOF
+  has_donate && printf ' &nbsp; <a style="color:%s" href="%s">%s</a>' "$mail_link" "$DONATE_URL" "$(L 'Support on Liberapay' 'Auf Liberapay unterstützen')"
+  echo '</div></td></tr></table></td></tr></table></body></html>'
 }
+
+mail_metric(){
+  printf '<td style="vertical-align:top;padding:14px 4px"><b style="font-size:26px">%s</b><br><span style="font-size:12px;color:%s">%s</span></td>' "$1" "$mail_muted" "$2"
+}
+mail_reboot_note(){
+  local label
+  label="$(L 'Reboot required' 'Neustart erforderlich')"
+  if [ "$MODE" = live ] && { { [ "$1" = NODE ] && [ "$REBOOT_HOSTS" = 1 ]; } || { [ "$1" != NODE ] && [ "$REBOOT_GUESTS" = 1 ]; }; }; then
+    label="$(L 'Reboot scheduled' 'Neustart vorgesehen')"
+  fi
+  printf '<span style="font-size:13px;font-weight:bold">%s</span>\n' "$label"
+}
+
 text_footer(){
   echo
   echo "-- pve-autoupdate $VERSION by $AUTHOR - ${WEBSITE#https://}"
@@ -1168,6 +1387,7 @@ build_report(){
   elif [ "$warnc" -gt 0 ]; then head="$(L "Updates with warnings" "Updates mit Warnungen")"; col="#9a6700"; emo="&#9888;&#65039;"; subj="⚠️ $warnc $(L "warning(s)" "Warnung(en)")"
   elif [ "$MODE" = dryrun ] && [ "$pkgsum" -gt 0 ]; then head="$(L "Dry run" Testlauf): $(pkgs_txt "$pkgsum") $(L available verfügbar)"; col="#1967d2"; emo="&#129514;"; subj="🧪 $(pkgs_txt "$pkgsum") $(L available verfügbar)"
   elif [ "$chg" -gt 0 ]; then head="$(L "Updates installed" "Updates installiert")"; col="#137333"; emo="&#9989;"; subj="✅ $(pkgs_txt "$pkgsum") $(L updated aktualisiert)"
+  elif [ "$skipc" -gt 0 ] || [ "$total" -eq 0 ]; then head="$(L "Run complete" "Lauf abgeschlossen")"; col="#526171"; emo=""; subj="$head"
   else head="$(L "Everything up to date" "Alles aktuell")"; col="#137333"; emo="&#9989;"; subj="✅ $(L "everything up to date" "alles aktuell")"; fi
   REPORT_SUBJECT="${pfx}[$TITLE] Updates: $subj"
   if upd_available; then updv=$(upd_get latest); REPORT_SUBJECT="$REPORT_SUBJECT · ⬆️ pve-autoupdate $updv $(L available verfügbar)"; fi
@@ -1197,7 +1417,42 @@ build_report(){
   cell="padding:9px 12px;border-bottom:1px solid #eceff1;font-size:14px;color:#37474f"
   {
     html_open "PROXMOX &middot; AUTO-UPDATE &middot; $(he "$TITLE")${pfx:+ &middot; $(L "DRY RUN" TESTLAUF)}" "$head" "$col" "$emo" "$st"
-    echo "<div style=\"padding:16px 22px 8px;font-size:14px;color:#37474f;line-height:1.9\"><b>$total</b> $(L machines Maschinen) &middot; <b style=\"color:#1a73e8\">$pkgsum</b> $(L packages Pakete) &middot; <b style=\"color:$([ "$failc" -gt 0 ] && echo '#c5221f' || echo '#137333')\">$failc</b> $(L errors Fehler) &middot; <b>$rbc</b> $(L "rolled back" zurückgesetzt) &middot; <b>$warnc</b> $(L warnings Warnungen)</div>"
+    local reboot_count
+    reboot_count=$(awk -F'|' '$7=="yes"{n++} END{print n+0}' "$RESULTS")
+    echo "<table role='presentation' width='100%' style='table-layout:fixed;border-collapse:collapse;border-top:1px solid $mail_line;border-bottom:1px solid $mail_line'><tr>"
+    mail_metric "$total" "$(L Systems Systeme)"
+    mail_metric "$pkgsum" "$([ "$MODE" = dryrun ] && L 'Packages available' 'Pakete verfügbar' || L Packages Pakete)"
+    mail_metric "$rbc" "$(L 'Rolled back' Zurückgesetzt)"
+    echo "</tr></table><p style='font-size:12px;color:$mail_muted'>$failc $(L errors Fehler) · $warnc $(L warnings Warnungen) · $skipc $(L skipped übersprungen) · $reboot_count $(L 'reboots needed' 'Neustarts nötig')</p>"
+    if [ "$MODE" = dryrun ]; then
+      echo "<p>$(L 'Check only. No updates were installed.' 'Testlauf. Es wurden keine Updates installiert.')</p>"
+    fi
+    if [ $((PROBLEMS + reboot_count)) -gt 0 ]; then
+      echo "<h2 style='font-size:17px'>$(L 'Needs attention' Handlungsbedarf)</h2>"
+      sorted | while IFS='|' read -r k id name node s pk rb ch sm; do
+        case "$s:$rb" in FAIL:*|ROLLBACK:*|WARN:*|*:yes)
+          echo "<div style='background:$mail_well;border-left:3px solid #d89b39;padding:12px;margin:7px 0;font-size:14px'><b>$(he "$name") · $(he "$node")</b><br>$(he "$sm")"
+          [ "$rb" != yes ] || mail_reboot_note "$k"
+          echo '</div>' ;;
+        esac
+      done
+    fi
+    echo "<h2 style='font-size:17px'>$(L 'System results' Systemergebnisse)</h2>"
+    cur=""
+    sorted | while IFS='|' read -r k id name node s pk rb ch sm; do
+      if [ "$node" != "$cur" ]; then
+        echo "<p style='color:$mail_muted;font-size:12px;font-weight:bold'>NODE · $(he "$node")</p>"
+        cur="$node"
+      fi
+      echo "<div style='padding:12px 0;border-top:1px solid $mail_line'><table role='presentation' width='100%'><tr><td><b>$(he "$name")</b></td><td align='right'>$(badge "$s")</td></tr></table>"
+      echo "<div style='font-size:12px;color:$mail_muted'>$(he "$k") $(he "$id")</div><div style='font-size:14px;margin:5px 0'>$(he "$sm")</div>"
+      [ "$rb" != yes ] || mail_reboot_note "$k"
+      echo '</div>'
+    done
+    if [ -s "$DETAILS" ]; then
+      echo "<h2 style='font-size:16px'>$(L 'Technical details' 'Technische Details')</h2><pre style='white-space:pre-wrap;word-break:break-word;background:$mail_well;padding:14px;font-size:12px'>$(he "$(cat "$DETAILS")")</pre>"
+    fi
+
     if [ -n "$updv" ]; then
       echo "<div style=\"margin:6px 20px 12px;padding:12px 14px;background:#fff8e6;border:1px solid #f2c46b;border-radius:10px;font-size:14px;color:#5c4400\">"
       echo "<div style=\"font-weight:700;color:#8a5a00\">&#11014;&#65039; $(L "New version of pve-autoupdate available" "Neue Version von pve-autoupdate verfügbar"): $(he "$VERSION") &rarr; $(he "$updv")</div>"
@@ -1208,31 +1463,7 @@ build_report(){
       fi
       echo "<div style=\"font-size:12px;color:#8a6d3b;margin-top:6px\">$(L "Install" "Installieren"): <code>pve-autoupdate self-update</code> $(L "or the button in the web UI" "oder der Button in der Weboberfläche")</div></div>"
     fi
-    echo '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0">'
-    echo "<tr style=\"background:#fafafa\"><th style=\"$cell;text-align:left;font-size:12px;color:#80868b\">$(L Machine Maschine)</th><th style=\"$cell;text-align:left;font-size:12px;color:#80868b\">Status</th><th style=\"$cell;text-align:right;font-size:12px;color:#80868b\">$(L Reboot Neustart)</th></tr>"
-    cur=""
-    sorted | while IFS='|' read -r k id name node s pk rb ch sm; do
-      if [ "$node" != "$cur" ]; then
-        echo "<tr><td colspan=3 style=\"padding:12px 12px 4px;font-size:12px;font-weight:700;color:#5f6368;letter-spacing:.5px\">&#128421; NODE $(he "$node")</td></tr>"
-        cur="$node"
-      fi
-      local icon="&#128230;" rbcell='<span style="color:#bdc1c6">&#8211;</span>' idtxt=""
-      [ "$k" = NODE ] && icon="&#128421;"; [ "$k" = VM ] && icon="&#128187;"
-      [ "$k" = NODE ] || idtxt=" <span style=\"color:#9aa0a6\">#$id</span>"
-      if [ "$rb" = yes ]; then
-        local rt; rt="$(L "reboot needed" "Neustart nötig")"
-        if [ "$MODE" = live ] && { { [ "$k" = NODE ] && [ "$REBOOT_HOSTS" = 1 ]; } || { [ "$k" != NODE ] && [ "$REBOOT_GUESTS" = 1 ]; }; }; then rt="&#8635; $(L "reboot follows" "Neustart folgt")"; fi
-        rbcell="<span style=\"background:#fef7e0;color:#9a6700;padding:3px 10px;border-radius:11px;font-weight:600;font-size:12px;white-space:nowrap\">$rt</span>"
-      fi
-      echo "<tr><td style=\"$cell\">$icon <b>$(he "$name")</b>$idtxt<div style=\"font-size:12px;color:#9aa0a6;margin-top:2px\">$(he "$sm")</div></td><td style=\"$cell\">$(badge "$s")</td><td style=\"$cell;text-align:right\">$rbcell</td></tr>"
-    done
-    echo '</table>'
-    if [ -s "$DETAILS" ]; then
-      echo '<div style="margin:10px 20px;padding:12px 14px;background:#f8f9fa;border-radius:8px"><div style="font-weight:700;color:#5f6368;font-size:13px;margin-bottom:6px">Details</div><pre style="margin:0;font-size:12px;color:#5f6368;white-space:pre-wrap">'
-      he "$(cat "$DETAILS")"
-      echo '</pre></div>'
-    fi
-    html_close "$(L Schedule Zeitplan): $(he "$(describe_schedule)") &middot; Snapshots: $SNAPSHOT &middot; $(L "Node reboot" "Node-Neustart"): $([ "$REBOOT_HOSTS" = 1 ] && L automatic automatisch || L manual manuell)<br>$(L "A snapshot is taken before every update; if the health check fails afterwards, the guest is rolled back automatically." "Vor jedem Update wird ein Snapshot angelegt; schlägt der Health-Check danach fehl, wird automatisch zurückgesetzt.")<br>Node $(he "$SELF") &middot; Log: $LOGF"
+    html_close "$(L Schedule Zeitplan): $(he "$(describe_schedule)") &middot; Snapshots: $SNAPSHOT &middot; $(L "Node reboot" "Node-Neustart"): $([ "$REBOOT_HOSTS" = 1 ] && L automatic automatisch || L manual manuell)<br>$(L "Automatic rollback requires an available snapshot." "Automatisches Zurücksetzen setzt einen verfügbaren Snapshot voraus.")<br>Node $(he "$SELF") &middot; Log: $LOGF"
   } > "$REPORT_HTML"
 }
 
@@ -1434,8 +1665,11 @@ import json, os, sys
 d, n, running, last = sys.argv[1], int(sys.argv[2]), sys.argv[3] == "1", sys.argv[4]
 files = sorted(f for f in os.listdir(d) if f.endswith(".jsonl")) if os.path.isdir(d) else []
 out = []
+have_report = False
 for f in reversed(files[-n:] if n else []):
     r = {"id": f[:-6], "status": "running", "results": 0, "problems": 0, "changes": 0, "fails": 0}
+    systems = []
+    r["packages"] = 0
     for line in open(os.path.join(d, f), encoding="utf-8", errors="replace"):
         try:
             e = json.loads(line)
@@ -1446,6 +1680,12 @@ for f in reversed(files[-n:] if n else []):
             r.update(start=e["ts"], mode=e.get("mode"), trigger=e.get("trigger"), only=e.get("only", ""))
         elif t == "result":
             r["results"] += 1
+            if e.get("status") != "ROLLBACK":
+                r["packages"] += int(e.get("pkgs") or 0)
+            if not have_report and r.get("mode") == "live":
+                item = {k: e.get(k, "") for k in ("kind","id","name","node","status","summary")}
+                item["reboot"] = e.get("reboot") == "yes"
+                systems.append(item)
         elif t == "report":
             r["subject"] = e.get("subject", "")
             for k in ("problems", "changes", "fails"):
@@ -1456,6 +1696,9 @@ for f in reversed(files[-n:] if n else []):
             r["postcheck"] = {"nodes": e.get("nodes"), "guests": e.get("guests"), "problems": int(e.get("problems") or 0)}
     if r["status"] == "running" and not (running and r["id"] == last):
         r["status"] = "aborted"
+    if not have_report and systems and r.get("end"):
+        r["systems"] = systems
+        have_report = True
     out.append(r)
 print(json.dumps(out, ensure_ascii=False))
 '
@@ -1515,6 +1758,7 @@ cfg_valid(){ # key value
     INCLUDE_VMS|UPDATE_HOSTS|UPDATE_SERVICES|REBOOT_GUESTS|REBOOT_HOSTS|UPDATE_WINDOWS) [[ "$2" =~ ^[01]$ ]] ;;
     SNAPSHOT)       [[ "$2" =~ ^(required|optional|off)$ ]] ;;
     NOTIFY)         [[ "$2" =~ ^(never|errors|changes|always)$ ]] ;;
+    MAIL_THEME)     [[ "$2" =~ ^(light|dark)$ ]] ;;
     MAIL_TRANSPORT) [[ "$2" =~ ^(system|smtp)$ ]] ;;
     SMTP_SECURITY)  [[ "$2" =~ ^(starttls|ssl|none)$ ]] ;;
     SMTP_PORT|SETTLE|WIN_UPDATE_TIMEOUT|WIN_REBOOT_TIMEOUT) [[ "$2" =~ ^[0-9]{1,5}$ ]] ;;
@@ -1774,15 +2018,16 @@ cmd_postcheck(){
   cell="padding:9px 12px;border-bottom:1px solid #eceff1;font-size:14px;color:#37474f"
   {
     html_open "PROXMOX &middot; $(L "POST CHECK" NACHKONTROLLE) &middot; $(he "$TITLE")" "$head" "$col" "$emo" "$ts"
-    echo "<div style=\"padding:16px 22px 4px;font-size:14px;color:#37474f\"><b>$((nt - nb))/$nt</b> $(L "nodes reachable" "Nodes erreichbar") &middot; <b>$((gt - gb))/$gt</b> $(L "guests online" "Gäste online")</div>"
+    cell="padding:9px 8px;border-bottom:1px solid $mail_line;font-size:14px;color:$mail_text"
+    echo "<div style=\"padding:16px 22px 4px;font-size:14px;color:$mail_text\"><b>$((nt - nb))/$nt</b> $(L "nodes reachable" "Nodes erreichbar") &middot; <b>$((gt - gb))/$gt</b> $(L "guests online" "Gäste online")</div>"
     echo '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">'
     while IFS='|' read -r node st kern; do
       case "$st" in OK) b=$(badge UP);; PENDING) b=$(badge PENDING);; *) b=$(badge FAIL);; esac
-      echo "<tr><td style=\"$cell\">&#128421; <b>$(he "$node")</b></td><td style=\"$cell\">$b</td><td style=\"$cell;text-align:right;color:#80868b;font-size:12px\">Kernel $(he "$kern")</td></tr>"
+      echo "<tr><td style=\"$cell\">&#128421; <b>$(he "$node")</b></td><td style=\"$cell\">$b</td><td style=\"$cell;text-align:right;color:$mail_muted;font-size:12px\">Kernel $(he "$kern")</td></tr>"
     done < "$work/nodes"
     while IFS='|' read -r id name node st; do
       if [ "$st" = UP ]; then b=$(badge UP); else b=$(badge FAIL); fi
-      echo "<tr><td style=\"$cell\">&#128230; <b>$(he "$name")</b> <span style=\"color:#9aa0a6\">#$id</span></td><td style=\"$cell;color:#80868b;font-size:12px\">@$(he "$node")</td><td style=\"$cell;text-align:right\">$b</td></tr>"
+      echo "<tr><td style=\"$cell\">&#128230; <b>$(he "$name")</b> <span style=\"color:$mail_muted\">#$id</span></td><td style=\"$cell;color:$mail_muted;font-size:12px\">@$(he "$node")</td><td style=\"$cell;text-align:right\">$b</td></tr>"
     done < "$work/guests"
     echo '</table>'
     html_close "$(L "Automatic check after the update reboots" "Automatische Kontrolle nach den Update-Neustarts")"
@@ -1802,7 +2047,7 @@ cmd_test_mail(){
   { L "Test mail from pve-autoupdate on $(hostname). If you can read this, sending works." \
       "Testmail von pve-autoupdate auf $(hostname). Wenn du das liest, funktioniert der Versand."; echo; text_footer; } > "$w/t.txt"
   { html_open "PROXMOX &middot; AUTO-UPDATE &middot; $(he "$TITLE")" "$(L "Test mail" Testmail)" "#1967d2" "&#9993;&#65039;" "$(stamp)"
-    echo "<div style=\"padding:18px 24px;font-size:14px;color:#37474f\">$(L "If you can read this, notifications arrive." "Wenn du das liest, kommen die Benachrichtigungen an.")<br>$(L Recipient Empfänger): $(he "$MAIL_TO") &middot; $(L Transport Versand): $(he "$MAIL_TRANSPORT")</div>"
+    echo "<div style=\"padding:12px 0;font-size:14px;color:$mail_text\">$(L "If you can read this, notifications arrive." "Wenn du das liest, kommen die Benachrichtigungen an.")<br>$(L Recipient Empfänger): $(he "$MAIL_TO") &middot; $(L Transport Versand): $(he "$MAIL_TRANSPORT")</div>"
     html_close "Node $(he "$(hostname)")"; } > "$w/t.html"
   msg_info "$(L "Sending test mail" "Testmail wird verschickt") ..."
   if send_mail "[$TITLE] $(L "Test mail from pve-autoupdate" "Testmail von pve-autoupdate")" "$w/t.txt" "$w/t.html"; then
@@ -2089,7 +2334,7 @@ cmd_uninstall(){
 # ============================================================================
 UI_CONF="$CONF_DIR/ui.conf"
 UI_RAW="${PVE_AUTOUPDATE_UI_RAW:-https://raw.githubusercontent.com/$REPO/main/ui}"
-UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg static/emblem.svg"
+UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg static/emblem.svg static/mail-preview.html"
 UI_DIR=/opt/pve-autoupdate-ui      # inside the container
 UI_ETC=/etc/pve-autoupdate-ui      # inside the container
 UI_PORT=8443
