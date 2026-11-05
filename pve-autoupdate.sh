@@ -21,7 +21,7 @@
 
 set -uo pipefail
 
-VERSION="2.2.1"
+VERSION="2.2.2"
 AUTHOR="Kai Frohwerk"
 REPO="frohkai/PVE_Autoupdate"
 WEBSITE="https://kaimazon.de"
@@ -2334,7 +2334,7 @@ cmd_uninstall(){
 # ============================================================================
 UI_CONF="$CONF_DIR/ui.conf"
 UI_RAW="${PVE_AUTOUPDATE_UI_RAW:-https://raw.githubusercontent.com/$REPO/main/ui}"
-UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg static/emblem.svg static/mail-preview.html"
+UI_FILES="pve-autoupdate-ui.py static/index.html static/app.css static/app.js static/logo.svg static/emblem.svg static/mail-preview.html static/inter.woff2 static/schibsted.woff2 static/plex-mono.woff2 static/OFL-inter.txt static/OFL-schibstedgrotesk.txt static/OFL-ibmplexmono.txt"
 UI_DIR=/opt/pve-autoupdate-ui      # inside the container
 UI_ETC=/etc/pve-autoupdate-ui      # inside the container
 UI_PORT=8443

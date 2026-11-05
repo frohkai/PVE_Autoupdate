@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.2.2 - 2026-11-05
+
+- Refine the entire web interface around kaimazon.de: graphite surfaces, amber accents, local Inter / Schibsted Grotesk / IBM Plex Mono fonts, technical labels and clearer typography.
+- Add a compact context bar and theme controls, numbered navigation and coordinated tables, forms, cards and mobile layouts.
+- Ship fonts and their SIL licenses with the UI; no external font requests.
+
+
 ## 2.2.1 - 2026-11-05
 
 - Redesign the sidebar with a larger project emblem, clearer navigation and installed version.

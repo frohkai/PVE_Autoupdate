@@ -16,6 +16,17 @@ assert(html.includes('Dienst nach dem Update nicht erreichbar'));
 assert.equal(vm.runInContext('fleetResults().filter(s=>s.state==="bad").length',ctx),2);
 assert(!html.includes('Keine Probleme in den letzten'));
 assert(html.includes('Nur Systeme aus diesem Lauf'));
+assert(html.includes('app-topbar'));
+assert(html.includes('nav-number'));
+assert(html.includes('data-act="theme"'));
+const installer=fs.readFileSync(path.join(__dirname,'../pve-autoupdate.sh'),'utf8');
+const css=fs.readFileSync(path.join(base,'app.css'),'utf8');
+for (const name of ['inter','schibsted','plex-mono']) {
+  assert(css.includes('url("'+name+'.woff2")'));
+  assert(installer.includes('static/'+name+'.woff2'));
+  assert.equal(fs.readFileSync(path.join(base,name+'.woff2')).toString('ascii',0,4),'wOF2');
+}
+assert(!/@import\s+url\(["']?https?:/.test(css));
 for(const tab of ['guests','history','settings']) { vm.runInContext('S.tab='+JSON.stringify(tab),ctx); assert(vm.runInContext('renderApp()',ctx).includes('sidebar')); }
 vm.runInContext("S.tab='overview'; S.history=[]",ctx); assert(vm.runInContext('renderApp()',ctx).includes('fleet-summary'));
 vm.runInContext("S.inv.last={}",ctx); assert(vm.runInContext('fleetSummary()',ctx).includes('noch nicht'));

@@ -316,7 +316,7 @@ function resultCell(r, slot) {
 }
 function skeleton(lines) { return `<div class="card sk-block" aria-busy="true">${'<span class="sk"></span>'.repeat(lines || 3)}</div>`; }
 function phead(title, sub, actions) {
-  return `<div class="phead"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${actions ? `<div class="actions">${actions}</div>` : ""}</div>`;
+  return `<div class="phead"><div><span class="page-eyebrow">PVE AUTOUPDATE</span><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${actions ? `<div class="actions">${actions}</div>` : ""}</div>`;
 }
 function chead(title, count, actions) {
   return `<div class="chead"><h2>${title}</h2>${count != null ? `<span class="count">${count}</span>` : ""}${actions ? `<div class="actions">${actions}</div>` : ""}</div>`;
@@ -430,19 +430,19 @@ function accountMenu(key) {
       <button role="menuitem" data-act="logout">${icon("logout")}${t("logout")}</button></div>` : ""}</div>`;
 }
 function renderApp() {
-  const nav = (k, ic, label) => `<a href="#/${k}" class="${S.tab === k ? "on" : ""}" ${S.tab === k ? 'aria-current="page"' : ""}>${icon(ic)}<span>${label}</span></a>`;
+  const nav = (k, ic, label) => `<a href="#/${k}" class="${S.tab === k ? "on" : ""}" ${S.tab === k ? 'aria-current="page"' : ""}>${icon(ic)}<span>${label}</span><span class="nav-number" aria-hidden="true">0${TABS.indexOf(k)+1}</span></a>`;
   let body = "";
   if (S.tab === "overview") body = renderOverview();
   else if (S.tab === "guests") body = renderGuestsPage();
   else if (S.tab === "history") body = S.detail ? renderDetail() : renderHistory();
   else body = renderSettings();
-  const brand = `<a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><span><b>PVE Autoupdate</b><small>${esc(wherePlace())}</small></span></a>`;
+  const brand = `<a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><span><b class="product-name">PVE<em>Autoupdate.</em></b><small>${esc(wherePlace())}</small></span></a>`;
   return `<aside class="sidebar">${brand}
-      <div class="nav-caption">${t("nav_caption")}</div><nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "server", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
+      <div class="nav-caption">${t("nav_caption")}<span aria-hidden="true">01—04</span></div><nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "server", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
       <div class="side-foot">${sideStatus()}<div class="side-version">${t("version_label")} <b>${esc(S.inv ? S.inv.version : S.session.version || "—")}</b></div>${accountMenu("acct")}</div>
     </aside>
     <header class="mtop">${brand}${accountMenu("acct-m")}</header>
-    <main><div class="page">${body}</div><footer class="project-footer"><div><b>PVE Autoupdate</b><small>${t("project_by")} ${AUTHOR}</small></div>
+    <main><div class="app-topbar"><div class="context-path">${icon("server")}<span class="context-product">PVE AUTOUPDATE /</span><b>${esc(wherePlace())}</b></div><div class="topbar-tools"><span class="topbar-note">${icon("lock")}Proxmox VE</span>${themeSwitch()}</div></div><div class="page">${body}</div><footer class="project-footer"><div><b>PVE Autoupdate</b><small>${t("project_by")} ${AUTHOR}</small></div>
       <nav aria-label="${t("site_links")}"><a href="${WEBSITE}" target="_blank" rel="noopener">kaimazon.de</a>
       <a href="https://links.kaimazon.de" target="_blank" rel="noopener">${t("site_links")}</a>
       ${hasDonate() ? `<a href="${DONATE_URL}" target="_blank" rel="noopener">${t("donate")}</a>` : ""}</nav></footer></main>`;
