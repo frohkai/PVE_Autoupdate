@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.2.1 - 2026-11-05
+
+- Redesign the sidebar with a larger project emblem, clearer navigation and installed version.
+- Separate fleet issues from the last completed live update, with scoped metrics, readable results and compact panels.
+- Add labelled update activity and responsive dashboard layouts.
+
 ## 2.2.0 - 2026-11-05
 
 - Select light or dark status emails independently from the web UI. Reports show action items before system results, with an embedded project emblem and project links.
@@ -51,3 +57,5 @@
 ## 1.x
 
 - Private predecessor (`fleet-update` / `standalone-update`) for a single homelab
+
+

@@ -21,7 +21,7 @@
 
 set -uo pipefail
 
-VERSION="2.2.0"
+VERSION="2.2.1"
 AUTHOR="Kai Frohwerk"
 REPO="frohkai/PVE_Autoupdate"
 WEBSITE="https://kaimazon.de"
@@ -3023,3 +3023,5 @@ dispatch(){
 
 [ -r "$CONF" ] && load_config
 dispatch "$@"
+
+

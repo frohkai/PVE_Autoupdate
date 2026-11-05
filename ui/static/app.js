@@ -159,6 +159,9 @@ const TXT = {
   },
 };
 
+Object.assign(TXT.en, {"nav_caption":"WORKSPACE","fleet_label":"All systems · latest known results","latest_live":"Last completed update","run_scope":"Only systems included in this run","fleet_attention":"Open system issues","fleet_clear":"No problems in the latest known system results.","fleet_unknown":"Some systems have not been checked yet.","fleet_problem":"Systems need attention","fleet_healthy":"Checked systems are healthy","view_systems":"View systems","activity":"Update activity","packages14":"Packages installed in 14 days","today":"Today","version_label":"Installed version"});
+Object.assign(TXT.de, {"nav_caption":"ARBEITSBEREICH","fleet_label":"Alle Systeme · letzte bekannte Ergebnisse","latest_live":"Letzter abgeschlossener Update-Lauf","run_scope":"Nur Systeme aus diesem Lauf","fleet_attention":"Offene Systemprobleme","fleet_clear":"Keine Probleme in den letzten bekannten Systemergebnissen.","fleet_unknown":"Einige Systeme wurden noch nicht geprüft.","fleet_problem":"Systeme benötigen Aufmerksamkeit","fleet_healthy":"Geprüfte Systeme sind in Ordnung","view_systems":"Systeme ansehen","activity":"Update-Aktivität","packages14":"Pakete installiert in 14 Tagen","today":"Heute","version_label":"Installierte Version"});
+
 // ------------------------------------------------------------------ state
 const TABS = ["overview", "guests", "history", "settings"];
 const S = {
@@ -435,8 +438,8 @@ function renderApp() {
   else body = renderSettings();
   const brand = `<a class="brand" href="#/overview"><img src="emblem.svg" alt="" width="240" height="177"><span><b>PVE Autoupdate</b><small>${esc(wherePlace())}</small></span></a>`;
   return `<aside class="sidebar">${brand}
-      <nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "server", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
-      <div class="side-foot">${sideStatus()}${accountMenu("acct")}</div>
+      <div class="nav-caption">${t("nav_caption")}</div><nav class="nav" aria-label="${t("main_nav")}">${nav("overview", "grid", t("dashboard"))}${nav("guests", "server", t("guests"))}${nav("history", "clock", t("history"))}${nav("settings", "sliders", t("settings"))}</nav>
+      <div class="side-foot">${sideStatus()}<div class="side-version">${t("version_label")} <b>${esc(S.inv ? S.inv.version : S.session.version || "—")}</b></div>${accountMenu("acct")}</div>
     </aside>
     <header class="mtop">${brand}${accountMenu("acct-m")}</header>
     <main><div class="page">${body}</div><footer class="project-footer"><div><b>PVE Autoupdate</b><small>${t("project_by")} ${AUTHOR}</small></div>
@@ -501,26 +504,42 @@ function statCard(cls, label, per, value, viz) {
 }
 
 // ------------------------------------------------------------------ overview (dashboard)
+function fleetResults() {
+  const inv = S.inv;
+  const systems = realGuests().map(g => ({kind: guestKind(g), id: g.id, name: g.name || g.id})).concat((inv.nodes || []).map(n => ({kind: "NODE", id: n.name, name: n.name})));
+  return systems.map(s => {
+    const l = lastOf(s.kind, s.id);
+    const result = l && [l.update, l.check].filter(Boolean).sort((a,b) => b.ts-a.ts)[0];
+    return {...s, result, state: sysState(l)};
+  });
+}
+function fleetSummary() {
+  const systems = fleetResults(), issues = systems.filter(s => s.state === "bad" || (s.result && s.result.reboot));
+  const unknown = systems.filter(s => s.state === "none").length;
+  const title = issues.length ? t("fleet_problem") : unknown || !systems.length ? t("fleet_unknown") : t("fleet_healthy");
+  return '<section class="fleet-summary '+(issues.length ? 'has-issues' : '')+'"><div class="summary-icon">'+icon(issues.length ? "alert" : unknown || !systems.length ? "clock" : "check")+'</div><div><p class="eyebrow">'+t("fleet_label")+'</p><h2>'+title+'</h2><p>'+num(systems.length)+' '+t("systems")+' · '+num(issues.length)+' '+t("fleet_attention")+'</p></div><a class="btn" href="#/guests">'+t("view_systems")+icon("right")+'</a></section>';
+}
+function fleetAttention() {
+  const systems = fleetResults(), issues = systems.filter(s => s.state === "bad" || (s.result && s.result.reboot));
+  const rows = issues.map(s => '<li><div class="main"><div class="l1"><b>'+esc(s.name)+'</b>'+badge(s.result.status)+'</div><div class="issue-detail">'+esc(s.result.summary || "")+(s.result.reboot ? ' · '+t("reboot_needed") : '')+'</div></div></li>').join('');
+  return '<section class="card attention-card">'+chead(t("fleet_attention"), issues.length)+'<p class="scope-note">'+t("fleet_label")+'</p>'+(rows ? '<ul class="list">'+rows+'</ul>' : '<div class="cbody muted">'+t("fleet_clear")+'</div>')+'</section>';
+}
+function activityCard() {
+  const start = dayStart(), trend = Array(DAYS).fill(0);
+  for (const h of S.history || []) {
+    const i = Math.floor(((h.start || runTs(h.id)) - start) / 86400);
+    if (i >= 0 && i < DAYS && h.mode === "live") trend[i] += +h.packages || 0;
+  }
+  const first = new Date(start*1000).toLocaleDateString(locale(), {day:"numeric",month:"short"});
+  return '<section class="card activity-card">'+chead(t("activity"),null,t("days14"))+'<div class="cbody"><div class="activity-total">'+num(sum(trend))+'<span>'+t("packages14")+'</span></div>'+spark(trend,start,t("report_packages"))+'<div class="axis"><span>'+esc(first)+'</span><span>'+t("today")+'</span></div></div></section>';
+}
 function latestReport(run) {
   if (!run || !Array.isArray(run.systems)) return "";
   const rows = run.systems;
-  const problems = rows.filter(r => ["FAIL","WARN","ROLLBACK"].includes(r.status) || r.reboot);
-  const cells = rows.map(r => `<tr><td><b>${esc(r.name || r.id)}</b><div class="l2">${esc(r.kind)} · ${esc(r.node)}</div></td>
-    <td>${badge(r.status)}</td><td>${esc(r.summary)}${r.reboot ? " · " + t("reboot_needed") : ""}</td></tr>`).join("");
-  const counts = [[t("report_systems"),rows.length],[t("report_packages"),run.packages || 0],
-    [t("b_ROLLBACK"),rows.filter(r => r.status === "ROLLBACK").length],[t("reboot_needed"),rows.filter(r => r.reboot).length]];
-  const metrics = counts.map(([label,n])=>`<div class="card stat"><span class="lbl">${label}</span><div class="num">${num(n)}</div></div>`).join("");
-  const days = stats(), trend = Array(DAYS).fill(0);
-  for (const h of S.history || []) {
-    const i = Math.floor(((h.start || 0) - days.start) / 86400);
-    if (i >= 0 && i < DAYS && h.mode === "live") trend[i] += h.packages || 0;
-  }
-  const attention = problems.map(r=>`<li><a href="#/history/${encodeURIComponent(run.id)}"><b>${esc(r.name || r.id)}</b> · ${r.reboot ? t("reboot_needed") : t("b_"+r.status)}</a></li>`).join("");
-  return `<div class="grid g4">${metrics}</div><div class="grid grid2">
-    <section class="card">${chead(t("report_packages"), null,t("days14"))}<div class="cbody">${spark(trend,days.start,t("report_packages"))}</div></section>
-    <section class="card">${chead(t("sample_attention"))}<div class="cbody">${attention ? "<ul>"+attention+"</ul>" : t("no_attention")}</div></section></div>
-    <section class="card">${chead(t("report_results"),null,`<a href="#/history/${encodeURIComponent(run.id)}">${esc(fmt(run.start))}</a>`)}
-    <div class="tblwrap"><table class="tbl"><thead><tr><th>${t("name")}</th><th>${t("status")}</th><th>${t("report_results")}</th></tr></thead><tbody>${cells}</tbody></table></div></section>`;
+  const cells = rows.map(r => '<tr><td><b>'+esc(r.name || r.id)+'</b><div class="l2">'+esc(r.kind)+' · '+esc(r.node)+'</div></td><td>'+badge(r.status)+'</td><td>'+esc(r.summary)+(r.reboot ? ' · '+t("reboot_needed") : '')+'</td></tr>').join('');
+  const counts = [[t("report_systems"),rows.length,"server"],[t("report_packages"),run.packages || 0,"box"],[t("b_ROLLBACK"),rows.filter(r=>r.status === "ROLLBACK").length,"refresh"],[t("reboot_needed"),rows.filter(r=>r.reboot).length,"power"]];
+  const metrics = counts.map(([label,n,ic])=>'<div class="report-metric"><span class="metric-icon">'+icon(ic)+'</span><div><span>'+label+'</span><b>'+num(n)+'</b></div></div>').join('');
+  return '<section class="card latest-report">'+chead(t("latest_live"),null,'<a href="#/history/'+encodeURIComponent(run.id)+'">'+esc(fmt(run.start || runTs(run.id)))+icon("right")+'</a>')+'<p class="scope-note">'+t("run_scope")+'</p><div class="report-metrics">'+metrics+'</div><div class="tblwrap"><table class="tbl report-table"><thead><tr><th>'+t("name")+'</th><th>'+t("status")+'</th><th>'+t("report_results")+'</th></tr></thead><tbody>'+cells+'</tbody></table></div></section>';
 }
 
 
@@ -529,9 +548,9 @@ function renderOverview() {
   if (!inv) return phead(t("dashboard")) + `<div class="grid g4">${skeleton(3).repeat(4)}</div><div class="grid g3">${skeleton(5).repeat(3)}</div>`;
   const st = stats(), nr = nextRunTxt(inv.next_run);
   const sub = esc(wherePlace() + " · " + (nr.none ? t("no_schedule") : t("next_x", { x: nr.s || nr.v })));
-  const report = latestReport((S.history || []).find(r => Array.isArray(r.systems)));
+  const report = latestReport((S.history || []).find(r => r.mode === "live" && !["running", "rebooting"].includes(r.status) && Array.isArray(r.systems)));
   if (report) return phead(t("dashboard"), sub, `<a class="btn" href="#/settings">${t("mail_preview")}</a>` + bulkActions())
-    + topNotes() + renderRun() + report + `<div class="grid g3">${healthCard()}${nodesCard()}${recentCard()}</div>`;
+    + topNotes() + renderRun() + fleetSummary() + `<div class="dashboard-layout"><div class="stack">${report}${recentCard()}</div><div class="stack">${fleetAttention()}${healthCard()}${nodesCard()}${activityCard()}</div></div>`;
   const upToDate = st.total - st.pendSys, pct = st.total ? (upToDate / st.total) * 100 : 100;
   const meter = `<div class="meter"><svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="bg" width="100" height="8"/><rect class="fg" width="${pct.toFixed(1)}" height="8"/></svg>
     <div class="legend"><span>${esc(t("m_uptodate", { n: upToDate }))}</span><span>${esc(t("m_pending", { n: st.pendSys }))}</span></div></div>`;
@@ -541,7 +560,7 @@ function renderOverview() {
     + statCard("c-amber", t("st_runs"), t("days14"), sum(st.runs), spark(st.runs, st.start, t("st_runs")));
   return `${phead(t("dashboard"), sub, `<a class="btn" href="#/settings">${t("mail_preview")}</a>` + bulkActions())}${topNotes()}${renderRun()}
     <div class="grid g4">${cards}</div>
-    <div class="grid g3">${healthCard()}${nodesCard()}${recentCard()}</div>`;
+    ${fleetSummary()}<div class="dashboard-layout"><div class="stack">${fleetAttention()}${recentCard()}</div><div class="stack">${healthCard()}${nodesCard()}</div></div>`;
 }
 
 // every system (guest or node) counts once, by its newest result
@@ -1100,3 +1119,5 @@ async function boot() {
   }
 }
 boot();
+
+
