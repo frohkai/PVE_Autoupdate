@@ -152,7 +152,7 @@ pve-autoupdate is free and stays free. If it saves you time, I appreciate your s
 
 <a href="https://liberapay.com/Viollent_Tech/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
 
-Issues and pull requests are welcome.
+Bug reports and feature ideas are welcome as issues. Pull requests are reviewed, but I decide what gets merged.
 
 ---
 
